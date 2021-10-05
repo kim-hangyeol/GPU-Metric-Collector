@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: metric-collector
+  namespace: gpu
+spec:
+  selector:
+    matchLabels:
+      name: metric-collector
+  template:
+    metadata:
+      labels:
+        name: metric-collector
+    spec:
+      serviceAccountName: keti-gpu-device-plugin
+      #schedulerName: scheduler
+      imagePullSecrets:
+        - name: regcred
+      restartPolicy: Always
+      containers:
+        - name: metric-collector
+          image: ketidevit/kmc-metric-test:v93  #54 #49 56은 뭐지? 82가 dcgm이전 86부터
+          volumeMounts:
+            - name: cpuinfo
+              mountPath: /proc
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: CLUSTER_NAME
+              value: "cluster1"
+            - name: OPERATOR_NAME
+              value: "openmcp-metric-collector"
+          env:
+          - name: MY_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+      volumes:
+      - name: cpuinfo
+        hostPath:
+          path: /proc
+      tolerations:
+        - key: node.kubernetes.io/not-ready
+          effect: NoExecute
+          tolerationSeconds: 0
+        - key: node.kubernetes.io/unreachable
+          effect: NoExecute
+          tolerationSeconds: 0
+
+

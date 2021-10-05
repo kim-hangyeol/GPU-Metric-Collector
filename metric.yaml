@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: metric-collector
+  namespace: gpu
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: metric-collector
+  namespace: gpu
+subjects:
+- kind: ServiceAccount
+  name: metric-collector
+  namespace: gpu
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metric-collector
+  namespace: gpu
+  labels:
+    name: metric-collector
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 2052
+    targetPort: 2052
+    nodePort: 32052
+    protocol: TCP
+  selector:
+    name: metric-collector
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: metric-collector
+  namespace: gpu
+spec:
+  selector:
+    matchLabels:
+      name: metric-collector
+  template:
+    metadata:
+      labels:
+        name: metric-collector
+    spec:
+      serviceAccountName: metric-collector
+      #schedulerName: scheduler
+      imagePullSecrets:
+        - name: regcred
+      restartPolicy: Always
+      containers:
+        - name: metric-collector
+          image: ketidevit/kmc-metric-test:v43  #54 #49
+          resources:
+            limits:
+              keti.com/mpsgpu : 2  # GPU 1개 요청하기
+        #      nvidia.com/gpu : 1
+          volumeMounts:
+          - name: device-plugins
+            mountPath: /var/lib/kubelet/device-plugins
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: CLUSTER_NAME
+              value: "cluster1"
+            - name: OPERATOR_NAME
+              value: "openmcp-metric-collector"
+          env:
+          - name: MY_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+      volumes:
+      - name: device-plugins
+        hostPath:
+          path: /var/lib/kubelet/device-plugins
+      tolerations:
+        - key: node.kubernetes.io/not-ready
+          effect: NoExecute
+          tolerationSeconds: 0
+        - key: node.kubernetes.io/unreachable
+          effect: NoExecute
+          tolerationSeconds: 0
+
+
