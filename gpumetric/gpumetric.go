@@ -84,7 +84,7 @@ func Gpumetric(c influxdb.Client, nodecpu string, nodememory string, nodename st
 	fmt.Printf("GPU Metric Collector log\n")
 	fmt.Println("GPU Index   GPU Utilization   GPU Memory(Total, Free, Used)   GPU Temperature     GPU Power(Total, Used)")
 	for i = 0; i < count; i++ {
-		fmt.print("5")
+		fmt.print("6")
 		//t := time.Now()
 		//fmt.Println(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second())
 		//fmt.Printf("GPU Index : %v\n", i)
