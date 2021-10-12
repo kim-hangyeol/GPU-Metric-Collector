@@ -17,25 +17,12 @@ spec:
       imagePullSecrets:
         - name: regcred
       restartPolicy: Always
-      initContainers:
-      - name: run-mps-server
-          args:
-            - nbody
-            - -benchmark
-            - -numdevices=2
-            - -numbodies=1000
-          resources:
-            limits:
-              keti.com/mpsgpu: 2
-          volumeMounts:
-            - name: nvidia-mps
-              mountPath: /tmp/nvidia-mps
       containers:
         - name: metric-collector
           image: ketidevit/kmc-metric-test:v69  #54 #49 56은 뭐지?
-          resources:
-            limits:
-              keti.com/mpsgpu : 2  # GPU 1개 요청하기
+          #resources:
+            #limits:
+              #keti.com/mpsgpu : 2  # GPU 1개 요청하기
         #      nvidia.com/gpu : 1
           volumeMounts:
           - name: device-plugins

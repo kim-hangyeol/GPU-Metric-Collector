@@ -2,10 +2,9 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"os/exec"
-
 	//"log"
+	//"os/exec"
+
 	"context"
 	"metric-collector/customMetrics"
 	"metric-collector/kubeletClient"
@@ -48,19 +47,19 @@ func main() {
 	// c.Query(makedatabase)
 	name := os.Getenv("MY_NODE_NAME")
 
-	fmt.Printf("nodename: %v\n", name)
-	cpu, err := exec.Command("grep", "-c", "processor", "/proc/cpuinfo").Output()
-	if err != nil {
-		log.Fatalf("cpu exec error %v", err)
-	}
-	fmt.Printf("Total CPU Core : %v", string(cpu))
-	memory, err := exec.Command("grep", "MemTotal", "/proc/meminfo").Output()
-	if err != nil {
-		log.Fatalf("mem exec error %v", err)
-	}
+	//fmt.Printf("nodename: %v\n", name)
+	//cpu, err := exec.Command("grep", "-c", "processor", "/proc/cpuinfo").Output()
+	//if err != nil {
+	//	log.Fatalf("cpu exec error %v", err)
+	//}
+	//fmt.Printf("Total CPU Core : %v", string(cpu))
+	//memory, err := exec.Command("grep", "MemTotal", "/proc/meminfo").Output()
+	//if err != nil {
+	//	log.Fatalf("mem exec error %v", err)
+	//}
 	nanocpu := ""
 	nodememoey := ""
-	fmt.Printf(string(memory))
+	//fmt.Printf(string(memory))
 	// cleanup, err := dcgm.Init(dcgm.Embedded)
 	// if err != nil {
 	// 	log.Panicln(err)
@@ -74,11 +73,10 @@ func main() {
 	// }
 
 	// Before retrieving process stats, wait few seconds for watches to be enabled and collect data
-	log.Println("Enabling DCGM watches to start collecting process stats. This may take a few seconds....")
-	time.Sleep(3000 * time.Millisecond)
+	//time.Sleep(3000 * time.Millisecond)
 
 	for {
-		nanocpu, nodememoey = MemberMetricCollector()
+		//nanocpu, nodememoey = MemberMetricCollector()
 		gpumetric.Gpumetric(c, nanocpu, nodememoey, name)
 		//nvmemetriccollector.Nvmemetric(c)
 		//metricfactory.Factory(c)
