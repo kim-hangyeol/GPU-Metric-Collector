@@ -148,7 +148,7 @@ func AddToDeployCustomMetricServer(data *storage.Collection, token string, host 
 
 func AddToPodCustomMetricServer(data *storage.Collection, token string, host string) (string, string) {
 	//fmt.Println("AddToPodCustomMetricServer Called")
-	fmt.Println("----------------------------------------------------")
+	//fmt.Println("----------------------------------------------------")
 	/*cpucore := 0
 	contants, err := ioutil.ReadFile("/proc/stat")
 	if err != nil {
@@ -161,13 +161,13 @@ func AddToPodCustomMetricServer(data *storage.Collection, token string, host str
 			cpucore++
 		}
 	}*/
-	fmt.Println("Node Name : ", data.Metricsbatchs[0].Node.Name)
+	//fmt.Println("Node Name : ", data.Metricsbatchs[0].Node.Name)
 	//fmt.Println("Node All CPU Core : ", cpucore)
-	fmt.Println("Node CPU Usage : ", data.Metricsbatchs[0].Node.CPUUsageNanoCores.String())
+	//fmt.Println("Node CPU Usage : ", data.Metricsbatchs[0].Node.CPUUsageNanoCores.String())
 	nanocpu := data.Metricsbatchs[0].Node.CPUUsageNanoCores.String()
-	fmt.Println("Node Memory Usage : ", data.Metricsbatchs[0].Node.MemoryUsageBytes.String())
+	//fmt.Println("Node Memory Usage : ", data.Metricsbatchs[0].Node.MemoryUsageBytes.String())
 	nodememory := data.Metricsbatchs[0].Node.MemoryUsageBytes.String()
-	fmt.Println("Node Memory Available : ", data.Metricsbatchs[0].Node.MemoryAvailableBytes.String())
+	//fmt.Println("Node Memory Available : ", data.Metricsbatchs[0].Node.MemoryAvailableBytes.String())
 	/*for i := 0; i < len(data.Metricsbatchs); i++ {
 		podList := data.Metricsbatchs[i].Pods
 		if podList != nil {

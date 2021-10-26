@@ -3,7 +3,7 @@ package gpumetric
 import (
 	"fmt"
 	"log"
-	//"metric-collector/gpumpsmetric"
+	"metric-collector/gpumpsmetric"
 	"strconv"
 	"time"
 
@@ -81,8 +81,8 @@ func Gpumetric(c influxdb.Client, nodecpu string, nodememory string, nodename st
 	}
 	//fmt.Printf("GPU Count : %v\n", count)
 	var i uint
-	fmt.Printf("GPU Metric Collector log\n")
-	fmt.Println("GPU Index   GPU Utilization   GPU Memory(Total, Free, Used)   GPU Temperature     GPU Power(Total, Used)")
+	//fmt.Printf("GPU Metric Collector log\n")
+	//fmt.Println("GPU Index   GPU Utilization   GPU Memory(Total, Free, Used)   GPU Temperature     GPU Power(Total, Used)")
 	for i = 0; i < count; i++ {
 		//fmt.print("13")
 		//t := time.Now()
@@ -96,7 +96,7 @@ func Gpumetric(c influxdb.Client, nodecpu string, nodememory string, nodename st
 		if ret != nil {
 			log.Fatalf("Unable to get status at index %d: %v", i, ret)
 		}
-		//gpumpsmetric.Gpumpsmetric(*device, int(count), c)
+		gpumpsmetric.Gpumpsmetric(*device, int(count), c)
 
 		//process := status.Processes
 		//fmt.Printf("%v \n",process)
@@ -112,7 +112,7 @@ func Gpumetric(c influxdb.Client, nodecpu string, nodememory string, nodename st
 		//fmt.Printf("%v\n", *memory)
 		//fmt.Printf("메모리 총량(MiB) : %v\n", *memory)
 
-		Memory := status.Memory                                                                         //메모리 정보 used
+		Memory := status.Memory //메모리 정보 used
 		//fmt.Printf("메모리 사용량(MiB) (Used, Free) : %v %v\n", *(Memory.Global.Used), *(Memory.Global.Free)) //Memory.ECCErrorsInfo.L1(L2)Cache(Device)
 		//fmt.Printf("메모리 사용량 : %v\n", Memory)
 
@@ -124,7 +124,7 @@ func Gpumetric(c influxdb.Client, nodecpu string, nodememory string, nodename st
 		//fmt.Printf("클럭 사용량 (Cores, Memory) : %v %v\n", *(Clock.Cores), *(Clock.Memory))
 		//fmt.Printf("클럭 사용량 : %v\n", Clock)
 
-		power := device.Power // 파워 총량
+		//power := device.Power // 파워 총량
 		//fmt.Printf("%v\n", *power)
 		//fmt.Printf("파워 총량(W) : %v\n", *power)
 
@@ -146,7 +146,7 @@ func Gpumetric(c influxdb.Client, nodecpu string, nodememory string, nodename st
 		gpuuuid = append(gpuuuid, uuid)
 
 		bp, _ := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
-			Database:  "gpumap",
+			Database:  "metric",
 			Precision: "s",
 		})
 
@@ -160,31 +160,33 @@ func Gpumetric(c influxdb.Client, nodecpu string, nodememory string, nodename st
 			"Power":         strconv.FormatUint(uint64(*Power), 10),
 			"temperature":   strconv.FormatUint(uint64(*temperature), 10),
 		}
-		pt, err := influxdb.NewPoint("metric", tags, fields, time.Now())
+		pt, err := influxdb.NewPoint("gpumetric", tags, fields, time.Now())
 		if err != nil {
 			fmt.Println("Error:", err.Error())
 		}
 		bp.AddPoint(pt)
+		fmt.Println("input : ", pt)
 		err = c.Write(bp)
 		if err != nil {
 			fmt.Println("Error:", err.Error())
 		}
-		fmt.Printf("|%7v|  |%13v|  |%7v| |%7v| |%7v| MiB |%15v| C |%5v| |%5v| W \n", i, *status.Utilization.GPU, *memory, *Memory.Global.Free, *Memory.Global.Used, *temperature, *power, *Power)
+		//fmt.Printf("|%7v|  |%13v|  |%7v| |%7v| |%7v| MiB |%15v| C |%5v| |%5v| W \n", i, *status.Utilization.GPU, *memory, *Memory.Global.Free, *Memory.Global.Used, *temperature, *power, *Power)
 	}
 
 	bp, _ := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
-		Database:  "multimetric",
+		Database:  "metric",
 		Precision: "s",
 	})
 
-	tags := map[string]string{"NodeName": nodename}
+	tags := map[string]string{}
 	fields := map[string]interface{}{
 		"NodeCPU":    nodecpu,
 		"NodeMemory": nodememory,
 		"uuid":       gpuuuid,
 		"Count":      count,
+		"NodeName":   nodename,
 	}
-	pt, err := influxdb.NewPoint("metric", tags, fields, time.Now())
+	pt, err := influxdb.NewPoint("multimetric", tags, fields, time.Now())
 	if err != nil {
 		fmt.Println("Error:", err.Error())
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -256,20 +257,62 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client) {
 	// }
 	//fmt.Println(mps)
 	//fmt.Println()
-	fmt.Println("GPU UUID : ", UUID)
-	fmt.Println("GPU running process : ", mps)
-	fmt.Println("GPU running pod : ", runpod)
-	fmt.Println("----------------------------------------------------")
-	fmt.Printf("    GPUMPSMAP ( GPU UUID : %v )\n", UUID)
-	fmt.Printf("   MPS NUM      Used Memory        PodName                          Container Name\n") //프로세스의 이름이 안나오네
+	//fmt.Println("GPU UUID : ", UUID)
+	//fmt.Println("GPU running process : ", mps)
+	//fmt.Println("GPU running pod : ", runpod)
+	//fmt.Println("----------------------------------------------------")
+	//fmt.Printf("    GPUMPSMAP ( GPU UUID : %v )\n", UUID)
+	//fmt.Printf("   MPS NUM      Used Memory        PodName                          Container Name\n") //프로세스의 이름이 안나오네
 	for i := 1; i < len(mps); i++ {
 		if mps[i].Name != "nvidia-cuda-mps-server" {
-			fmt.Printf("MPS |%4v| : |%10vMiB| |%30v|  |%20v|\n", i-1, mps[i].MemoryUsed, gpumpsmap[i-1].Pod, gpumpsmap[i-1].Container)
+			//fmt.Printf("MPS |%4v| : |%10vMiB| |%30v|  |%20v|\n", i-1, mps[i].MemoryUsed, gpumpsmap[i-1].Pod, gpumpsmap[i-1].Container)
+			bp, _ := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
+				Database:  "metric",
+				Precision: "s",
+			})
+
+			tags := map[string]string{"UUID": UUID}
+			fields := map[string]interface{}{
+				"gpu_mps_count":   strconv.Itoa(len(mps) - 1),
+				"gpu_mps_index":   strconv.Itoa(i),
+				"gpu_mps_process": mps[i].Name,
+				"gpu_mps_memory":  strconv.Itoa(int(mps[i].MemoryUsed)),
+			}
+			pt, err := influxdb.NewPoint("gpumap", tags, fields, time.Now())
+			if err != nil {
+				fmt.Println("Error:", err.Error())
+			}
+			bp.AddPoint(pt)
+			err = c.Write(bp)
+			if err != nil {
+				fmt.Println("Error:", err.Error())
+			}
 		} else {
 			fmt.Printf("MPS |%4v| : |%10vMiB| |%30v|  |%20v|\n", i-1, mps[i-1].MemoryUsed, gpumpsmap[i-1].Pod, gpumpsmap[i-1].Container)
+			bp, _ := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
+				Database:  "metric",
+				Precision: "s",
+			})
+
+			tags := map[string]string{"UUID": UUID}
+			fields := map[string]interface{}{
+				"gpu_mps_count":   strconv.Itoa(len(mps) - 1),
+				"gpu_mps_index":   strconv.Itoa(i),
+				"gpu_mps_process": mps[i-1].Name,
+				"gpu_mps_memory":  strconv.Itoa(int(mps[i-1].MemoryUsed)),
+			}
+			pt, err := influxdb.NewPoint("gpumap", tags, fields, time.Now())
+			if err != nil {
+				fmt.Println("Error:", err.Error())
+			}
+			bp.AddPoint(pt)
+			err = c.Write(bp)
+			if err != nil {
+				fmt.Println("Error:", err.Error())
+			}
 		}
 	}
-	fmt.Println("----------------------------------------------------")
+	//fmt.Println("----------------------------------------------------")
 
 	// bp, _ := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
 	// 	Database:  "multimetric",

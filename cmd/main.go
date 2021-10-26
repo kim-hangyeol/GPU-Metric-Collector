@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+
 	//"log"
 	//"os/exec"
 
@@ -29,7 +30,7 @@ import (
 func main() {
 	//gpumap := "gpumap"
 	ip := "influxdb.gpu.svc.cluster.local"
-	//ip := "10.102.31.195"
+	//ip := "10.244.2.2"
 	port := "8086"
 	url := "http://" + ip + ":" + port
 	c, err := influxdb.NewHTTPClient(influxdb.HTTPConfig{
@@ -38,13 +39,13 @@ func main() {
 	if err != nil {
 		fmt.Println("Error creatring influx", err.Error())
 	}
+	makedatabase := influxdb.Query{
+		Command:  "create database metric",
+		Database: "_internal",
+	}
+	c.Query(makedatabase)
 	defer c.Close()
 
-	// makedatabase := influxdb.Query{
-	// 	Command:  "create database gpumap",
-	// 	Database: gpumap,
-	// }
-	// c.Query(makedatabase)
 	name := os.Getenv("MY_NODE_NAME")
 
 	//fmt.Printf("nodename: %v\n", name)
@@ -76,7 +77,7 @@ func main() {
 	//time.Sleep(3000 * time.Millisecond)
 
 	for {
-		//nanocpu, nodememoey = MemberMetricCollector()
+		nanocpu, nodememoey = MemberMetricCollector()
 		gpumetric.Gpumetric(c, nanocpu, nodememoey, name)
 		//nvmemetriccollector.Nvmemetric(c)
 		//metricfactory.Factory(c)

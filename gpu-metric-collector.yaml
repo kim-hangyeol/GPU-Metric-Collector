@@ -18,7 +18,7 @@ spec:
       restartPolicy: Always
       containers:
         - name: gpu-metric-collector
-          image: ketidevit/kmc-metric-test:v105
+          image: ketidevit/kmc-metric-test:v106
           volumeMounts:
             - name: cpuinfo
               mountPath: /proc
@@ -36,6 +36,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
+      nodeSelector:
+        gpu: a100
       volumes:
       - name: cpuinfo
         hostPath:
@@ -47,5 +49,6 @@ spec:
         - key: node.kubernetes.io/unreachable
           effect: NoExecute
           tolerationSeconds: 0
+
 
 
