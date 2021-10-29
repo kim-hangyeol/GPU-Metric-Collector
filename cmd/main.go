@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"net"
+	"strings"
 
 	//"log"
 	//"os/exec"
@@ -13,6 +16,8 @@ import (
 	"os"
 	"time"
 
+	"metric-collector/grpcs"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -21,13 +26,56 @@ import (
 	//"github.com/NVIDIA/go-nvml/pkg/nvml"
 	"metric-collector/gpumetric"
 
+	"github.com/NVIDIA/gpu-monitoring-tools/bindings/go/nvml"
 	_ "github.com/influxdata/influxdb1-client"
 	influxdb "github.com/influxdata/influxdb1-client/v2"
+
 	//"metric-collector/metricfactory"
 	//"metric-collector/nvmemetriccollector"
+	userpb "metric-collector/protos"
+
+	"google.golang.org/grpc"
 )
 
+const portNumber = "9000"
+
+type UserServer struct {
+	userpb.UserServer
+}
+
+var Node []*grpcs.GrpcNode
+
+var GPU []*grpcs.GrpcGPU
+
+var gpuuuid []string
+
 func main() {
+	count := uint(0)
+	ret := nvml.Init()
+	if ret != nil {
+		//log.Fatalf("Unable to initialize NVML: %v", ret)
+		fmt.Printf("Unable to initialize NVML: %v\n", ret)
+	} else {
+		count, _ = nvml.GetDeviceCount()
+		defer func() {
+			ret := nvml.Shutdown()
+			if ret != nil {
+				//log.Fatalf("Unable to shutdown NVML: %v", ret)
+				fmt.Printf("Unable to shutdown NVML: %v\n", ret)
+			}
+		}()
+
+	}
+
+	for i := uint(0); i < count; i++ {
+		device, _ := nvml.NewDevice(i)
+		uuid := device.UUID
+		gpuuuid = append(gpuuuid, uuid)
+		GPU = append(GPU, &grpcs.GrpcGPU{})
+	}
+	Node = append(Node, &grpcs.GrpcNode{})
+	Node[0].GrpcNodeUUID = gpuuuid
+	Node[0].GrpcNodeCount = int(count)
 	//gpumap := "gpumap"
 	ip := "influxdb.gpu.svc.cluster.local"
 	//ip := "10.244.2.2"
@@ -43,10 +91,12 @@ func main() {
 		Command:  "create database metric",
 		Database: "_internal",
 	}
+	name := os.Getenv("MY_NODE_NAME")
+	Node[0].GrpcNodeName = name
+	fmt.Println(Node[0].GrpcNodeName)
 	c.Query(makedatabase)
 	defer c.Close()
-
-	name := os.Getenv("MY_NODE_NAME")
+	go grpcrun()
 
 	//fmt.Printf("nodename: %v\n", name)
 	//cpu, err := exec.Command("grep", "-c", "processor", "/proc/cpuinfo").Output()
@@ -58,8 +108,8 @@ func main() {
 	//if err != nil {
 	//	log.Fatalf("mem exec error %v", err)
 	//}
-	nanocpu := ""
-	nodememoey := ""
+	var nanocpu int64
+	var nodememoey int64
 	//fmt.Printf(string(memory))
 	// cleanup, err := dcgm.Init(dcgm.Embedded)
 	// if err != nil {
@@ -78,7 +128,9 @@ func main() {
 
 	for {
 		nanocpu, nodememoey = MemberMetricCollector()
-		gpumetric.Gpumetric(c, nanocpu, nodememoey, name)
+		gpumetric.Gpumetric(c, nanocpu, nodememoey, name, GPU)
+		Node[0].GrpcNodeCPU = nanocpu
+		Node[0].GrpcNodeMemory = nodememoey
 		//nvmemetriccollector.Nvmemetric(c)
 		//metricfactory.Factory(c)
 
@@ -87,7 +139,7 @@ func main() {
 
 }
 
-func MemberMetricCollector() (string, string) {
+func MemberMetricCollector() (int64, int64) {
 	//SERVER_IP := os.Getenv("GRPC_SERVER")
 	//SERVER_PORT := os.Getenv("GRPC_PORT")
 	//fmt.Println("ClusterMetricCollector Start")
@@ -113,7 +165,7 @@ func MemberMetricCollector() (string, string) {
 	if errs != nil {
 		fmt.Println(errs)
 		time.Sleep(time.Duration(period_int64) * time.Second)
-		return "", ""
+		return 0, 0
 	}
 	//fmt.Println("Convert Metric Data For gRPC")
 
@@ -165,4 +217,61 @@ func MemberMetricCollector() (string, string) {
 	//	fmt.Println("--- Fail to get period")
 	//	time.Sleep(5 * time.Second)
 	//}
+}
+
+func (s *UserServer) GetNode(ctx context.Context, req *userpb.GetNodeRequest) (*userpb.GetNodeResponse, error) {
+	var userNodeMessage *userpb.NodeMessage
+	var nodedata = &userpb.NodeMessage{
+		NodeName:   Node[0].GrpcNodeName,
+		NodeCpu:    Node[0].GrpcNodeCPU,
+		GpuCount:   int64(Node[0].GrpcNodeCount),
+		NodeMemory: Node[0].GrpcNodeMemory,
+		GpuUuid:    strings.Join(Node[0].GrpcNodeUUID, " "),
+	}
+	userNodeMessage = nodedata
+
+	return &userpb.GetNodeResponse{
+		NodeMessage: userNodeMessage,
+	}, nil
+}
+
+// ListUsers returns all user messages
+func (s *UserServer) GetGPU(ctx context.Context, req *userpb.GetGPURequest) (*userpb.GetGPUResponse, error) {
+	var userGPUMessage *userpb.GPUMessage
+	uuid := req.GpuUuid
+	for i, j := range gpuuuid {
+		if j != uuid {
+			continue
+		}
+		var gpudata = &userpb.GPUMessage{
+			GpuUuid:   GPU[i].GrpcGPUUUID,
+			GpuMemory: GPU[i].GrpcGPUMemory,
+			GpuName:   GPU[i].GrpcGPUName,
+			GpuIndex:  int64(GPU[i].GrpcGPUIndex),
+			GpuFull:   GPU[i].GrpcGPUfull,
+			GpuTemp:   int64(GPU[i].GrpcGPUtemp),
+			GpuPower:  int64(GPU[i].GrpcGPUpower),
+		}
+		userGPUMessage = gpudata
+		break
+	}
+
+	return &userpb.GetGPUResponse{
+		GpuMessage: userGPUMessage,
+	}, nil
+}
+
+func grpcrun() {
+	lis, err := net.Listen("tcp", ":"+portNumber)
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+
+	grpcServer := grpc.NewServer()
+	userpb.RegisterUserServer(grpcServer, &UserServer{})
+
+	log.Printf("start gRPC server on %s port", portNumber)
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %s", err)
+	}
 }

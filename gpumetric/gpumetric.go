@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"metric-collector/gpumpsmetric"
+	"metric-collector/grpcs"
 	"strconv"
 	"time"
 
@@ -59,7 +60,7 @@ type PCIThroughputInfo struct {
 	TX uint
 }*/
 
-func Gpumetric(c influxdb.Client, nodecpu string, nodememory string, nodename string) {
+func Gpumetric(c influxdb.Client, nodecpu int64, nodememory int64, nodename string, GPU []*grpcs.GrpcGPU) {
 	//func Gpumetric(c influxdb.Client, nvml *nvml1) {
 	//name := os.Getenv("MY_NODE_NAME")
 
@@ -67,17 +68,44 @@ func Gpumetric(c influxdb.Client, nodecpu string, nodememory string, nodename st
 	var gpuuuid []string
 	ret := nvml.Init()
 	if ret != nil {
-		log.Fatalf("Unable to initialize NVML: %v", ret)
+		//log.Fatalf("Unable to initialize NVML: %v", ret)
+		fmt.Printf("Unable to initialize NVML: %v\n", ret)
+		bp, _ := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
+			Database:  "metric",
+			Precision: "s",
+		})
+
+		tags := map[string]string{}
+		fields := map[string]interface{}{
+			"NodeCPU":    nodecpu,
+			"NodeMemory": nodememory,
+			"uuid":       gpuuuid,
+			"Count":      0,
+			"NodeName":   nodename,
+		}
+		pt, err := influxdb.NewPoint("multimetric", tags, fields, time.Now())
+		if err != nil {
+			fmt.Println("Error:", err.Error())
+		}
+		bp.AddPoint(pt)
+		err = c.Write(bp)
+		if err != nil {
+			fmt.Println("Error:", err.Error())
+		}
+		return
 	}
 	defer func() {
 		ret := nvml.Shutdown()
 		if ret != nil {
-			log.Fatalf("Unable to shutdown NVML: %v", ret)
+			//log.Fatalf("Unable to shutdown NVML: %v", ret)
+			fmt.Printf("Unable to shutdown NVML: %v\n", ret)
 		}
 	}()
 	count, ret := nvml.GetDeviceCount()
 	if ret != nil {
-		log.Fatalf("Unable to get device count: %v", ret)
+		//log.Fatalf("Unable to get device count: %v", ret)
+		fmt.Printf("Unable to get device count: %v", ret)
+		count = 0
 	}
 	//fmt.Printf("GPU Count : %v\n", count)
 	var i uint
@@ -145,6 +173,14 @@ func Gpumetric(c influxdb.Client, nodecpu string, nodememory string, nodename st
 		//fmt.Printf("PCI (BusID, BAR1 Memory, BandWidth): %v %v %v\n", pci.BusID, *(pci.BAR1), *(pci.Bandwidth))
 		gpuuuid = append(gpuuuid, uuid)
 
+		GPU[i].GrpcGPUMemory = *Memory.Global.Used
+		GPU[i].GrpcGPUUUID = uuid
+		GPU[i].GrpcGPUName = *dname
+		GPU[i].GrpcGPUIndex = int(i)
+		GPU[i].GrpcGPUfull = *memory
+		GPU[i].GrpcGPUtemp = int(*temperature)
+		GPU[i].GrpcGPUpower = int(*Power)
+
 		bp, _ := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
 			Database:  "metric",
 			Precision: "s",
@@ -165,7 +201,6 @@ func Gpumetric(c influxdb.Client, nodecpu string, nodememory string, nodename st
 			fmt.Println("Error:", err.Error())
 		}
 		bp.AddPoint(pt)
-		fmt.Println("input : ", pt)
 		err = c.Write(bp)
 		if err != nil {
 			fmt.Println("Error:", err.Error())
@@ -195,5 +230,4 @@ func Gpumetric(c influxdb.Client, nodecpu string, nodememory string, nodename st
 	if err != nil {
 		fmt.Println("Error:", err.Error())
 	}
-
 }
