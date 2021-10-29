@@ -97,7 +97,6 @@ func main() {
 	c.Query(makedatabase)
 	defer c.Close()
 	go grpcrun()
-
 	//fmt.Printf("nodename: %v\n", name)
 	//cpu, err := exec.Command("grep", "-c", "processor", "/proc/cpuinfo").Output()
 	//if err != nil {
@@ -244,13 +243,14 @@ func (s *UserServer) GetGPU(ctx context.Context, req *userpb.GetGPURequest) (*us
 			continue
 		}
 		var gpudata = &userpb.GPUMessage{
-			GpuUuid:   GPU[i].GrpcGPUUUID,
-			GpuMemory: GPU[i].GrpcGPUMemory,
-			GpuName:   GPU[i].GrpcGPUName,
-			GpuIndex:  int64(GPU[i].GrpcGPUIndex),
-			GpuFull:   GPU[i].GrpcGPUfull,
-			GpuTemp:   int64(GPU[i].GrpcGPUtemp),
-			GpuPower:  int64(GPU[i].GrpcGPUpower),
+			GpuUuid:  GPU[i].GrpcGPUUUID,
+			GpuUsed:  GPU[i].GrpcGPUused,
+			GpuName:  GPU[i].GrpcGPUName,
+			GpuIndex: int64(GPU[i].GrpcGPUIndex),
+			GpuTotal: GPU[i].GrpcGPUtotal,
+			GpuFree:  GPU[i].GrpcGPUfree,
+			GpuTemp:  int64(GPU[i].GrpcGPUtemp),
+			GpuPower: int64(GPU[i].GrpcGPUpower),
 		}
 		userGPUMessage = gpudata
 		break

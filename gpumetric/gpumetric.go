@@ -173,11 +173,12 @@ func Gpumetric(c influxdb.Client, nodecpu int64, nodememory int64, nodename stri
 		//fmt.Printf("PCI (BusID, BAR1 Memory, BandWidth): %v %v %v\n", pci.BusID, *(pci.BAR1), *(pci.Bandwidth))
 		gpuuuid = append(gpuuuid, uuid)
 
-		GPU[i].GrpcGPUMemory = *Memory.Global.Used
+		GPU[i].GrpcGPUused = *Memory.Global.Used
+		GPU[i].GrpcGPUfree = *Memory.Global.Free
 		GPU[i].GrpcGPUUUID = uuid
 		GPU[i].GrpcGPUName = *dname
 		GPU[i].GrpcGPUIndex = int(i)
-		GPU[i].GrpcGPUfull = *memory
+		GPU[i].GrpcGPUtotal = *memory
 		GPU[i].GrpcGPUtemp = int(*temperature)
 		GPU[i].GrpcGPUpower = int(*Power)
 

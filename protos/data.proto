@@ -26,12 +26,13 @@ message GetNodeResponse {
 
 message GPUMessage {
     string gpu_uuid = 1;
-    uint64 gpu_memory = 2;
-    string gpu_name = 3;
-    int64 gpu_index = 4;
-    uint64 gpu_full = 5;
-    int64 gpu_temp = 6;
-    int64 gpu_power = 7;
+    uint64 gpu_total = 2;
+    uint64 gpu_used = 3;
+    uint64 gpu_free = 4;
+    string gpu_name = 5;
+    int64 gpu_index = 6;
+    int64 gpu_temp = 7;
+    int64 gpu_power = 8;
 }
 
 message GetGPURequest{

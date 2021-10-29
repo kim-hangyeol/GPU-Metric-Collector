@@ -1,13 +1,14 @@
 package grpcs
 
 type GrpcGPU struct {
-	GrpcGPUUUID   string
-	GrpcGPUMemory uint64
-	GrpcGPUName   string
-	GrpcGPUIndex  int
-	GrpcGPUfull   uint64
-	GrpcGPUtemp   int
-	GrpcGPUpower  int
+	GrpcGPUUUID  string
+	GrpcGPUused  uint64
+	GrpcGPUfree  uint64
+	GrpcGPUName  string
+	GrpcGPUIndex int
+	GrpcGPUtotal uint64
+	GrpcGPUtemp  int
+	GrpcGPUpower int
 }
 
 type GrpcNode struct {
