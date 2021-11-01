@@ -5,6 +5,7 @@ import (
 	"log"
 	"metric-collector/gpumpsmetric"
 	"metric-collector/grpcs"
+	"metric-collector/storage"
 	"strconv"
 	"time"
 
@@ -60,7 +61,7 @@ type PCIThroughputInfo struct {
 	TX uint
 }*/
 
-func Gpumetric(c influxdb.Client, nodecpu int64, nodememory int64, nodename string, GPU []*grpcs.GrpcGPU) {
+func Gpumetric(c influxdb.Client, nodecpu int64, nodememory int64, nodename string, GPU []*grpcs.GrpcGPU, data *storage.Collection) {
 	//func Gpumetric(c influxdb.Client, nvml *nvml1) {
 	//name := os.Getenv("MY_NODE_NAME")
 
@@ -124,7 +125,7 @@ func Gpumetric(c influxdb.Client, nodecpu int64, nodememory int64, nodename stri
 		if ret != nil {
 			log.Fatalf("Unable to get status at index %d: %v", i, ret)
 		}
-		gpumpsmetric.Gpumpsmetric(*device, int(count), c)
+		gpumpsmetric.Gpumpsmetric(*device, int(count), c, data)
 
 		//process := status.Processes
 		//fmt.Printf("%v \n",process)

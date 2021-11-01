@@ -18,7 +18,7 @@ spec:
       restartPolicy: Always
       containers:
         - name: gpu-metric-collector
-          image: ketidevit/kmc-metric-test:v119
+          image: ketidevit/kmc-metric-test:v123
           volumeMounts:
             - name: cpuinfo
               mountPath: /proc

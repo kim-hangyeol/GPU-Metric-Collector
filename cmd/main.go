@@ -13,6 +13,7 @@ import (
 	"metric-collector/customMetrics"
 	"metric-collector/kubeletClient"
 	"metric-collector/scrap"
+	"metric-collector/storage"
 	"os"
 	"time"
 
@@ -107,8 +108,6 @@ func main() {
 	//if err != nil {
 	//	log.Fatalf("mem exec error %v", err)
 	//}
-	var nanocpu int64
-	var nodememoey int64
 	//fmt.Printf(string(memory))
 	// cleanup, err := dcgm.Init(dcgm.Embedded)
 	// if err != nil {
@@ -126,8 +125,11 @@ func main() {
 	//time.Sleep(3000 * time.Millisecond)
 
 	for {
-		nanocpu, nodememoey = MemberMetricCollector()
-		gpumetric.Gpumetric(c, nanocpu, nodememoey, name, GPU)
+		data, nanocpu, nodememoey := MemberMetricCollector()
+		// if data == nil {
+		// 	continue
+		// }
+		gpumetric.Gpumetric(c, nanocpu, nodememoey, name, GPU, data)
 		Node[0].GrpcNodeCPU = nanocpu
 		Node[0].GrpcNodeMemory = nodememoey
 		//nvmemetriccollector.Nvmemetric(c)
@@ -138,7 +140,7 @@ func main() {
 
 }
 
-func MemberMetricCollector() (int64, int64) {
+func MemberMetricCollector() (*storage.Collection, int64, int64) {
 	//SERVER_IP := os.Getenv("GRPC_SERVER")
 	//SERVER_PORT := os.Getenv("GRPC_PORT")
 	//fmt.Println("ClusterMetricCollector Start")
@@ -164,7 +166,7 @@ func MemberMetricCollector() (int64, int64) {
 	if errs != nil {
 		fmt.Println(errs)
 		time.Sleep(time.Duration(period_int64) * time.Second)
-		return 0, 0
+		//return nil, 0, 0
 	}
 	//fmt.Println("Convert Metric Data For gRPC")
 
@@ -201,7 +203,7 @@ func MemberMetricCollector() (int64, int64) {
 	//fmt.Println("client: ", client)
 
 	nodecpu, nodememory := customMetrics.AddToPodCustomMetricServer(data, token, host)
-	return nodecpu, nodememory
+	return data, nodecpu, nodememory
 	//customMetrics.AddToDeployCustomMetricServer(data, token, host, client)
 	//fmt.Println("[http End] Post Metric Data to Custom Metric Server")
 
