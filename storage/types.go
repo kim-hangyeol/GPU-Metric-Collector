@@ -77,60 +77,69 @@ type MetricsPoint struct {
 	FsUsedBytes      resource.Quantity
 }
 
-type MultiMetric struct {
-	cpu_usage int
-	cpu_total int
-	cpu_temp int
-	memory_usage int
-	memory_total int
-	network_rx_usage int
-	network_tx_usage int
-	gpu_count int
-	node_name string
+// type MultiMetric struct {
+// 	cpu_usage        int
+// 	cpu_total        int
+// 	cpu_temp         int
+// 	memory_usage     int
+// 	memory_total     int
+// 	network_rx_usage int
+// 	network_tx_usage int
+// 	gpu_count        int
+// 	node_name        string
+// }
+
+// type PodRecord struct {
+// 	gpu_uuid              string
+// 	pod_name              string
+// 	node_name             string
+// 	pod_max_gpumemory     int
+// 	pod_average_gpumemory float64
+// 	pod_average_cpu       float64
+// 	pod_max_memory        int
+// 	user_input            UserInput
+// }
+
+// type GPUMetric struct {
+// 	pcie_rx_usage   int
+// 	pcie_tx_usage   int
+// 	gpu_mps_count   int
+// 	gpu_mps_max     int
+// 	gpu_name        string
+// 	gpu_index       int
+// 	gpu_utilization int
+// 	gpu_uuid        string
+// 	gpu_memory      int
+// 	gpu_power       int
+// 	gpu_temp        int
+// }
+
+// type GPUMap struct {
+// 	gpu_uuid        string
+// 	gpu_mps_index   int
+// 	gpu_mps_process string
+// 	gpu_mps_memory  int
+// }
+
+// type UserInput struct {
+// }
+
+// type CPUResource struct {
+// }
+
+// type GPUResource struct {
+// }
+
+type PodGPU struct {
+	PodName      string
+	Pid          uint
+	Index        int
+	GPUmpscount  int
+	Usegpumemory int
+	Isrunning    int
 }
 
-type PodRecord struct {
-	gpu_uuid string
-	pod_name string
-	node_name string
-	pod_max_gpumemory int
-	pod_average_gpumemory float64
-	pod_average_cpu float64
-	pod_max_memory int
-	user_input UserInput
-}
-
-
-type GPUMetric struct {
-	pcie_rx_usage int
-	pcie_tx_usage int
-	gpu_mps_count int
-	gpu_mps_max int
-	gpu_name string
-	gpu_index int
-	gpu_utilization int
-	gpu_uuid string
-	gpu_memory int
-	gpu_power int
-	gpu_temp int
-}
-
-type GPUMap struct {
-	gpu_uuid string
-	gpu_mps_index int
-	gpu_mps_process string
-	gpu_mps_memory int
-}
-
-
-type UserInput struct {
-
-}
-
-type CPUResource struct {
-
-}
-
-type GPUResource struct {
-
+type GPUMAP struct {
+	GPUUUID   string
+	PodMetric []PodGPU
 }

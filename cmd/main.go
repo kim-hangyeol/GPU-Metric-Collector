@@ -24,10 +24,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	//"github.com/NVIDIA/go-nvml/pkg/nvml"
 	"metric-collector/gpumetric"
 
-	"github.com/NVIDIA/gpu-monitoring-tools/bindings/go/nvml"
+	"github.com/NVIDIA/go-nvml/pkg/nvml"
+
+	//"github.com/NVIDIA/gpu-monitoring-tools/bindings/go/nvml"
 	_ "github.com/influxdata/influxdb1-client"
 	influxdb "github.com/influxdata/influxdb1-client/v2"
 
@@ -48,19 +49,21 @@ var Node []*grpcs.GrpcNode
 
 var GPU []*grpcs.GrpcGPU
 
+var Podmap []*storage.GPUMAP
+
 var gpuuuid []string
 
 func main() {
-	count := uint(0)
+	count := 0
 	ret := nvml.Init()
-	if ret != nil {
+	if ret != nvml.SUCCESS {
 		//log.Fatalf("Unable to initialize NVML: %v", ret)
 		fmt.Printf("Unable to initialize NVML: %v\n", ret)
 	} else {
-		count, _ = nvml.GetDeviceCount()
+		count, _ = nvml.DeviceGetCount()
 		defer func() {
 			ret := nvml.Shutdown()
-			if ret != nil {
+			if ret != nvml.SUCCESS {
 				//log.Fatalf("Unable to shutdown NVML: %v", ret)
 				fmt.Printf("Unable to shutdown NVML: %v\n", ret)
 			}
@@ -68,9 +71,9 @@ func main() {
 
 	}
 
-	for i := uint(0); i < count; i++ {
-		device, _ := nvml.NewDevice(i)
-		uuid := device.UUID
+	for i := 0; i < count; i++ {
+		device, _ := nvml.DeviceGetHandleByIndex(i)
+		uuid, _ := device.GetUUID()
 		gpuuuid = append(gpuuuid, uuid)
 		GPU = append(GPU, &grpcs.GrpcGPU{})
 	}
@@ -94,7 +97,7 @@ func main() {
 	}
 	name := os.Getenv("MY_NODE_NAME")
 	Node[0].GrpcNodeName = name
-	fmt.Println(Node[0].GrpcNodeName)
+	//fmt.Println(Node[0].GrpcNodeName)
 	c.Query(makedatabase)
 	defer c.Close()
 	go grpcrun()
@@ -125,22 +128,26 @@ func main() {
 	//time.Sleep(3000 * time.Millisecond)
 
 	for {
-		data, nanocpu, nodememoey := MemberMetricCollector()
+		data, totalcpu, nanocpu, totalmemory, nodememoey, nodetotalstorage, nodestorage := MemberMetricCollector()
 		// if data == nil {
 		// 	continue
 		// }
-		gpumetric.Gpumetric(c, nanocpu, nodememoey, name, GPU, data)
+		gpumetric.Gpumetric(c, nanocpu, nodememoey, name, GPU, data, Podmap)
 		Node[0].GrpcNodeCPU = nanocpu
 		Node[0].GrpcNodeMemory = nodememoey
+		Node[0].GrpcNodetotalCPU = totalcpu
+		Node[0].GrpcNodeTotalMemory = totalmemory
+		Node[0].GrpcNodeTotalStorage = nodetotalstorage
+		Node[0].GrpcNodeStorage = nodestorage
 		//nvmemetriccollector.Nvmemetric(c)
 		//metricfactory.Factory(c)
 
-		time.Sleep(1000000000)
+		time.Sleep(10 * time.Second)
 	}
 
 }
 
-func MemberMetricCollector() (*storage.Collection, int64, int64) {
+func MemberMetricCollector() (*storage.Collection, int64, int64, int64, int64, int64, int64) {
 	//SERVER_IP := os.Getenv("GRPC_SERVER")
 	//SERVER_PORT := os.Getenv("GRPC_PORT")
 	//fmt.Println("ClusterMetricCollector Start")
@@ -202,8 +209,9 @@ func MemberMetricCollector() (*storage.Collection, int64, int64) {
 	//fmt.Println("token: ", token)
 	//fmt.Println("client: ", client)
 
-	nodecpu, nodememory := customMetrics.AddToPodCustomMetricServer(data, token, host)
-	return data, nodecpu, nodememory
+	totalcpu, nodecpu, totalmemory, nodememory, nodetotalstorage, nodestorage := customMetrics.AddToPodCustomMetricServer(data, token, host)
+	// fmt.Println(nodememory)
+	return data, totalcpu, nodecpu, totalmemory, nodememory, nodetotalstorage, nodestorage
 	//customMetrics.AddToDeployCustomMetricServer(data, token, host, client)
 	//fmt.Println("[http End] Post Metric Data to Custom Metric Server")
 
@@ -222,15 +230,27 @@ func MemberMetricCollector() (*storage.Collection, int64, int64) {
 
 func (s *UserServer) GetNode(ctx context.Context, req *userpb.GetNodeRequest) (*userpb.GetNodeResponse, error) {
 	var userNodeMessage *userpb.NodeMessage
+	var maxgpumemory = int64(0)
+	for i := range gpuuuid {
+		if maxgpumemory < int64(GPU[i].GrpcGPUtotal) {
+			maxgpumemory = int64(GPU[i].GrpcGPUtotal)
+		}
+
+	}
 	var nodedata = &userpb.NodeMessage{
-		NodeName:   Node[0].GrpcNodeName,
-		NodeCpu:    Node[0].GrpcNodeCPU,
-		GpuCount:   int64(Node[0].GrpcNodeCount),
-		NodeMemory: Node[0].GrpcNodeMemory,
-		GpuUuid:    strings.Join(Node[0].GrpcNodeUUID, " "),
+		NodeName:         Node[0].GrpcNodeName,
+		NodeTotalcpu:     Node[0].GrpcNodetotalCPU,
+		NodeCpu:          Node[0].GrpcNodeCPU,
+		GpuCount:         int64(Node[0].GrpcNodeCount),
+		NodeTotalmemory:  Node[0].GrpcNodeTotalMemory,
+		NodeMemory:       Node[0].GrpcNodeMemory,
+		NodeTotalstorage: Node[0].GrpcNodeTotalStorage,
+		NodeStorage:      Node[0].GrpcNodeStorage,
+		GpuUuid:          strings.Join(Node[0].GrpcNodeUUID, " "),
+		MaxGpuMemory:     maxgpumemory,
 	}
 	userNodeMessage = nodedata
-
+	// fmt.Println(nodedata)
 	return &userpb.GetNodeResponse{
 		NodeMessage: userNodeMessage,
 	}, nil
@@ -240,9 +260,13 @@ func (s *UserServer) GetNode(ctx context.Context, req *userpb.GetNodeRequest) (*
 func (s *UserServer) GetGPU(ctx context.Context, req *userpb.GetGPURequest) (*userpb.GetGPUResponse, error) {
 	var userGPUMessage *userpb.GPUMessage
 	uuid := req.GpuUuid
+
 	for i, j := range gpuuuid {
 		if j != uuid {
 			continue
+		}
+		if GPU[i].GrpcGPUmpscount < 0 {
+			GPU[i].GrpcGPUmpscount = 0
 		}
 		var gpudata = &userpb.GPUMessage{
 			GpuUuid:  GPU[i].GrpcGPUUUID,
@@ -253,10 +277,12 @@ func (s *UserServer) GetGPU(ctx context.Context, req *userpb.GetGPURequest) (*us
 			GpuFree:  GPU[i].GrpcGPUfree,
 			GpuTemp:  int64(GPU[i].GrpcGPUtemp),
 			GpuPower: int64(GPU[i].GrpcGPUpower),
+			MpsCount: int64(GPU[i].GrpcGPUmpscount),
 		}
 		userGPUMessage = gpudata
 		break
 	}
+	// fmt.Println(userGPUMessage)
 
 	return &userpb.GetGPUResponse{
 		GpuMessage: userGPUMessage,

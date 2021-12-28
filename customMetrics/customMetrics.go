@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io/ioutil"
 	"metric-collector/storage"
 	"net/http"
 	"os"
@@ -145,29 +146,57 @@ func AddToDeployCustomMetricServer(data *storage.Collection, token string, host 
 	}
 }
 
-func AddToPodCustomMetricServer(data *storage.Collection, token string, host string) (int64, int64) {
+func AddToPodCustomMetricServer(data *storage.Collection, token string, host string) (int64, int64, int64, int64, int64, int64) {
 	//fmt.Println("AddToPodCustomMetricServer Called")
 	//fmt.Println("----------------------------------------------------")
-	/*cpucore := 0
-	contants, err := ioutil.ReadFile("/proc/stat")
+	cpucore := 0
+	contants, err := ioutil.ReadFile("/proc/cpuinfo")
 	if err != nil {
-		return
+		fmt.Println("cpu stat error")
 	}
 	lines := strings.Split(string(contants), "\n")
 	for _, line := range lines {
 		fields := strings.Fields(line)
-		if fields[0] == "cpu" {
-			cpucore++
+		if len(fields) != 0 {
+			if fields[0] == "processor" {
+				cpucore++
+			}
 		}
-	}*/
+	}
+	totalmemory := 0
+	contants, err = ioutil.ReadFile("/proc/meminfo")
+	if err != nil {
+		fmt.Println("meminfo error")
+	}
+	lines = strings.Split(string(contants), "\n")
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) != 0 {
+			if fields[0] == "MemTotal:" {
+				//fmt.Println(fields[1])
+				total, err := strconv.Atoi(fields[1])
+				if err != nil {
+					fmt.Println("atoi error")
+				}
+				totalmemory = total
+			}
+		}
+	}
+	//fmt.Println(data.Metricsbatchs[0].Node.Name)
+	//fmt.Println(data.Metricsbatchs[0].Pods)
+	//fmt.Println(data.Metricsbatchs[0].Pods[0].Containers[0].Timestamp)
 	//fmt.Println("Node Name : ", data.Metricsbatchs[0].Node.Name)
 	//fmt.Println("Node All CPU Core : ", cpucore)
 	//fmt.Println("Node CPU Usage : ", data.Metricsbatchs[0].Node.CPUUsageNanoCores.String())
 	//nanocpu := data.Metricsbatchs[0].Node.CPUUsageNanoCores.String()
 	nanocpu := data.Metricsbatchs[0].Node.CPUUsageNanoCores.MilliValue()
+	totalcpu := cpucore * 1000
 	//fmt.Println("Node Memory Usage : ", data.Metricsbatchs[0].Node.MemoryUsageBytes.String())
 	//nodememory := data.Metricsbatchs[0].Node.MemoryUsageBytes.String()
-	nodememory := data.Metricsbatchs[0].Node.MemoryUsageBytes.MilliValue()
+	nodememory := data.Metricsbatchs[0].Node.MemoryUsageBytes.Value()
+	nodetotalstorage := data.Metricsbatchs[0].Node.FsCapacityBytes.Value()
+	nodestorage := int(data.Metricsbatchs[0].Node.FsUsedBytes.Value())
+	totalmemory = totalmemory * 1000
 	//fmt.Println("Node Memory Available : ", data.Metricsbatchs[0].Node.MemoryAvailableBytes.String())
 	/*for i := 0; i < len(data.Metricsbatchs); i++ {
 		podList := data.Metricsbatchs[i].Pods
@@ -204,7 +233,7 @@ func AddToPodCustomMetricServer(data *storage.Collection, token string, host str
 			fmt.Println("Fail : Cannot load Pod list")
 		}
 	}*/
-	return nanocpu, nodememory
+	return int64(totalcpu), nanocpu, int64(totalmemory), nodememory, nodetotalstorage, int64(nodestorage)
 }
 
 func PostData(host string, token string, client *http.Client, resourceNamespace string, resourceName string, resourceMetricName string, resourceMetricValue string) {

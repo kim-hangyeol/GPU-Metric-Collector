@@ -3,9 +3,12 @@
 github.com/Masterminds/semver
 # github.com/NVIDIA/go-dcgm v0.0.0-20210825154740-df776fdbfea0
 ## explicit
+# github.com/NVIDIA/go-nvml v0.11.1-0
+## explicit
+github.com/NVIDIA/go-nvml/pkg/dl
+github.com/NVIDIA/go-nvml/pkg/nvml
 # github.com/NVIDIA/gpu-monitoring-tools v0.0.0-20210803220325-7c362b2f4913
 ## explicit
-github.com/NVIDIA/gpu-monitoring-tools/bindings/go/nvml
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
 # github.com/go-logr/logr v0.4.0

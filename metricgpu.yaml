@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: gpu-metric-collector
+  name: keti-gpu-metric-collector
   namespace: gpu
 spec:
   selector:
@@ -18,7 +18,7 @@ spec:
       restartPolicy: Always
       containers:
         - name: gpu-metric-collector
-          image: ketidevit/kmc-metric-test:v123
+          image: ketidevit/kmc-metric-test:v164
           volumeMounts:
             - name: cpuinfo
               mountPath: /proc
