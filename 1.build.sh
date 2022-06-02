@@ -1,8 +1,8 @@
 #!/bin/bash
-docker_id="ketidevit"
+docker_id="ketidevit2"
 image_name="kmc-metric-test"
 operator="metric-collector"
-version=v164 #82
+version=v220 #82
 
 export GO111MODULE=on
 go mod vendor

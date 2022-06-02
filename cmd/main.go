@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"flag"
 	"metric-collector/gpumetric"
 
 	"github.com/NVIDIA/go-nvml/pkg/nvml"
@@ -39,6 +40,8 @@ import (
 	"google.golang.org/grpc"
 )
 
+var collect_time = flag.Int("collecttime", 10, "Metric Collect Time")
+
 const portNumber = "9000"
 
 type UserServer struct {
@@ -49,12 +52,12 @@ var Node []*grpcs.GrpcNode
 
 var GPU []*grpcs.GrpcGPU
 
-var Podmap []*storage.GPUMAP
-
 var gpuuuid []string
 
 func main() {
+	Node = append(Node, &grpcs.GrpcNode{})
 	count := 0
+	flag.Parse()
 	ret := nvml.Init()
 	if ret != nvml.SUCCESS {
 		//log.Fatalf("Unable to initialize NVML: %v", ret)
@@ -76,8 +79,21 @@ func main() {
 		uuid, _ := device.GetUUID()
 		gpuuuid = append(gpuuuid, uuid)
 		GPU = append(GPU, &grpcs.GrpcGPU{})
+		maxclock, _ := device.GetMaxClockInfo(0)
+
+		cudacore, _ := device.GetNumGpuCores()
+
+		gpuflops := maxclock * uint32(cudacore) * 2 / 1000
+
+		gpuarch, _ := device.GetArchitecture()
+
+		GPU[i].GrpcGPUflops = int(gpuflops)
+		GPU[i].GrpcGPUarch = int(gpuarch)
+		// fmt.Printf("GPU %d FLOPS : %d\n", i, gpuflops)
+		// fmt.Printf("  CudaCore : %d\n", cudacore)
+		// fmt.Printf("  MaxGPUClock : %d\n", maxclock)
 	}
-	Node = append(Node, &grpcs.GrpcNode{})
+	Node[0].NodeGPU = GPU
 	Node[0].GrpcNodeUUID = gpuuuid
 	Node[0].GrpcNodeCount = int(count)
 	//gpumap := "gpumap"
@@ -101,6 +117,7 @@ func main() {
 	c.Query(makedatabase)
 	defer c.Close()
 	go grpcrun()
+	// go analyzer()
 	//fmt.Printf("nodename: %v\n", name)
 	//cpu, err := exec.Command("grep", "-c", "processor", "/proc/cpuinfo").Output()
 	//if err != nil {
@@ -128,24 +145,49 @@ func main() {
 	//time.Sleep(3000 * time.Millisecond)
 
 	for {
+		//workdata := GetWorkData()
 		data, totalcpu, nanocpu, totalmemory, nodememoey, nodetotalstorage, nodestorage := MemberMetricCollector()
 		// if data == nil {
 		// 	continue
 		// }
-		gpumetric.Gpumetric(c, nanocpu, nodememoey, name, GPU, data, Podmap)
 		Node[0].GrpcNodeCPU = nanocpu
 		Node[0].GrpcNodeMemory = nodememoey
 		Node[0].GrpcNodetotalCPU = totalcpu
 		Node[0].GrpcNodeTotalMemory = totalmemory
 		Node[0].GrpcNodeTotalStorage = nodetotalstorage
 		Node[0].GrpcNodeStorage = nodestorage
+		Node[0].NodeNetworkRX = data.Metricsbatchs[0].Node.NetworkRxBytes.Value()
+		Node[0].NodeNetworkTX = data.Metricsbatchs[0].Node.NetworkTxBytes.Value()
+		go gpumetric.Gpumetric(c, nanocpu, nodememoey, name, GPU, data, Node[0])
+
 		//nvmemetriccollector.Nvmemetric(c)
 		//metricfactory.Factory(c)
-
-		time.Sleep(10 * time.Second)
+		time.Sleep(time.Duration(*collect_time) * time.Second)
+		// fmt.Println(*collect_time)
 	}
 
 }
+
+// func GetWorkData() string {
+// 	conn, err := grpc.Dial("10.0.5.24:30036", grpc.WithInsecure(), grpc.WithBlock())
+// 	if err != nil {
+// 		log.Fatalf("did not connect: %v", err)
+// 	}
+// 	defer conn.Close()
+// 	c := userpb.NewUserClient(conn)
+
+// 	// Contact the server and print out its response.
+// 	//name := "gpu"
+// 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+// 	var r *userpb.GetWorkNameResponse // 여기 수정중
+// 	r, err = c.GetWorkName(ctx, &userpb.GetWorkNameRequest{Nodename: os.Getenv("MY_NODE_NAME")})
+// 	if err != nil {
+// 		log.Fatalf("could not greet: %v", err)
+// 	}
+// 	var workdata = r.GetWorkname()
+// 	cancel()
+// 	return workdata
+// }
 
 func MemberMetricCollector() (*storage.Collection, int64, int64, int64, int64, int64, int64) {
 	//SERVER_IP := os.Getenv("GRPC_SERVER")
@@ -169,6 +211,7 @@ func MemberMetricCollector() (*storage.Collection, int64, int64, int64, int64, i
 	kubeletClient, _ := kubeletClient.NewKubeletClient()
 
 	data, errs := scrap.Scrap(host_config, kubeletClient, nodes.Items)
+	//fmt.Println(data)
 
 	if errs != nil {
 		fmt.Println(errs)
@@ -250,7 +293,7 @@ func (s *UserServer) GetNode(ctx context.Context, req *userpb.GetNodeRequest) (*
 		MaxGpuMemory:     maxgpumemory,
 	}
 	userNodeMessage = nodedata
-	// fmt.Println(nodedata)
+	//fmt.Println(nodedata)
 	return &userpb.GetNodeResponse{
 		NodeMessage: userNodeMessage,
 	}, nil
@@ -269,21 +312,24 @@ func (s *UserServer) GetGPU(ctx context.Context, req *userpb.GetGPURequest) (*us
 			GPU[i].GrpcGPUmpscount = 0
 		}
 		var gpudata = &userpb.GPUMessage{
-			GpuUuid:  GPU[i].GrpcGPUUUID,
-			GpuUsed:  GPU[i].GrpcGPUused,
-			GpuName:  GPU[i].GrpcGPUName,
-			GpuIndex: int64(GPU[i].GrpcGPUIndex),
-			GpuTotal: GPU[i].GrpcGPUtotal,
-			GpuFree:  GPU[i].GrpcGPUfree,
-			GpuTemp:  int64(GPU[i].GrpcGPUtemp),
-			GpuPower: int64(GPU[i].GrpcGPUpower),
-			MpsCount: int64(GPU[i].GrpcGPUmpscount),
+			GpuUuid:   GPU[i].GrpcGPUUUID,
+			GpuUsed:   uint64(GPU[i].GrpcGPUused),
+			GpuName:   GPU[i].GrpcGPUName,
+			GpuIndex:  int64(GPU[i].GrpcGPUIndex),
+			GpuTotal:  uint64(GPU[i].GrpcGPUtotal),
+			GpuFree:   uint64(GPU[i].GrpcGPUfree),
+			GpuTemp:   int64(GPU[i].GrpcGPUtemp),
+			GpuPower:  int64(GPU[i].GrpcGPUpower),
+			MpsCount:  int64(GPU[i].GrpcGPUmpscount),
+			GpuFlops:  int64(GPU[i].GrpcGPUflops),
+			GpuArch:   int64(GPU[i].GrpcGPUarch),
+			GpuTpower: int64(GPU[i].GrpcGPUtotalpower),
 		}
 		userGPUMessage = gpudata
 		break
 	}
 	// fmt.Println(userGPUMessage)
-
+	//fmt.Println(userGPUMessage)
 	return &userpb.GetGPUResponse{
 		GpuMessage: userGPUMessage,
 	}, nil

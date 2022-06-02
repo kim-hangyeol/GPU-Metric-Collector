@@ -7,6 +7,8 @@ option go_package = "grpcserver/protos/v1/user";
 service User {
     rpc GetNode(GetNodeRequest) returns (GetNodeResponse);
     rpc GetGPU(GetGPURequest) returns (GetGPUResponse);
+    rpc GetWorkName(GetWorkNameRequest) returns (GetWorkNameResponse);
+    rpc SendDegradation(DegradationMessage) returns (DegradationMessage);
 }
 
 message NodeMessage {
@@ -39,6 +41,10 @@ message GPUMessage {
     int64 gpu_temp = 7;
     int64 gpu_power = 8;
     int64 mps_count = 9;
+    int64 gpu_flops = 10;
+    int64 gpu_arch = 11;
+    int64 gpu_tpower = 12;
+    int64 gpu_util = 13;
 }
 
 message GetGPURequest{
@@ -47,4 +53,17 @@ message GetGPURequest{
 
 message GetGPUResponse {
     GPUMessage gpu_message = 1;
+}
+
+message GetWorkNameRequest {
+    string ip = 1;
+    string nodename = 2;
+}
+
+message GetWorkNameResponse {
+    string workname = 1;
+}
+
+message DegradationMessage{
+    string DegradationData = 1;
 }

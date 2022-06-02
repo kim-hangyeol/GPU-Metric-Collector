@@ -2,15 +2,22 @@ package grpcs
 
 type GrpcGPU struct {
 	GrpcGPUUUID       string
-	GrpcGPUused       uint64
-	GrpcGPUfree       uint64
+	GrpcGPUused       int64
+	GrpcGPUfree       int64
 	GrpcGPUName       string
 	GrpcGPUIndex      int
-	GrpcGPUtotal      uint64
+	GrpcGPUtotal      int64
 	GrpcGPUtemp       int
 	GrpcGPUpower      int
 	GrpcGPUmpscount   int
 	GrpcGPUtotalpower int
+	GrpcGPUflops      int
+	GrpcGPUarch       int
+	GrpcGPUutil       int
+	FanSpeed          int
+	GPUPod            []*PodMetric
+	GPURX             int
+	GPUTX             int
 }
 
 type GrpcNode struct {
@@ -22,5 +29,21 @@ type GrpcNode struct {
 	GrpcNodeMemory       int64
 	GrpcNodeTotalStorage int64
 	GrpcNodeStorage      int64
+	NodeNetworkRX        int64
+	NodeNetworkTX        int64
 	GrpcNodeUUID         []string
+	NodeGPU              []*GrpcGPU
+}
+
+type PodMetric struct {
+	PodUid       string
+	PodName      string
+	ProcessName  string
+	PodPid       uint32
+	PodGPUMemory int64
+	PodMemory    int64
+	PodCPU       float64
+	PodNetworkRX int64
+	PodNetworkTX int64
+	PodStorage   int64
 }

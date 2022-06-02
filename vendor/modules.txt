@@ -3,7 +3,7 @@
 github.com/Masterminds/semver
 # github.com/NVIDIA/go-dcgm v0.0.0-20210825154740-df776fdbfea0
 ## explicit
-# github.com/NVIDIA/go-nvml v0.11.1-0
+# github.com/NVIDIA/go-nvml v0.11.6-0
 ## explicit
 github.com/NVIDIA/go-nvml/pkg/dl
 github.com/NVIDIA/go-nvml/pkg/nvml

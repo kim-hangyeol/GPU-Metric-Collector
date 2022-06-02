@@ -32,5 +32,3 @@ Log Check
 
     $ kubectl logs [keti-gpu-metric-collector] -n gpu
     2021/12/27 07:45:38 start gRPC server on 9000 port
-## Governance
-> This work was supported by Institute of Information & communications Technology Planning & Evaluation (IITP) grant funded by the Korea government(MSIT) (No.2021-0-00862, Development of DBMS storage engine technology to minimize massive data movement)
