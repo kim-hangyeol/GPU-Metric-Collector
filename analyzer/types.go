@@ -29,6 +29,7 @@ type PodMetric struct {
 
 type Degradation struct {
 	NodeName      string
+	ISIncrease    bool
 	ISDegradation bool
 	GPU           []*DegradationGPU
 }
@@ -36,10 +37,12 @@ type Degradation struct {
 type DegradationGPU struct {
 	GPUUUID       string
 	ISDegradation bool
+	ISIncrease    bool
 	Pod           []*DegradationPod
 }
 
 type DegradationPod struct {
 	PodUID        string
+	ISIncrease    bool
 	ISDegradation bool
 }

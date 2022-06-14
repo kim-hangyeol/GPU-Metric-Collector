@@ -21,7 +21,10 @@ var (
 	mutex                sync.Mutex
 	GPUDegradationCount  int
 	NodeDegradationCount int
+	DegradationCount     int
+	InCreaseCount        int
 	FindDegradation      bool
+	FindIncrease         bool
 )
 
 const portNumber = "9000"
@@ -32,16 +35,30 @@ type UserServer struct {
 
 var DegradationPersent = flag.Int("DegradationPersent", 10, "Metric Collect Time")
 
-func Analyzer(Node_Metric *grpcs.GrpcNode) error {
+func Analyzer(Node_Metric grpcs.GrpcNode) error {
 	flag.Parse()
+	// fmt.Println(Node_Metric)
 	// fmt.Println("degradationpersent : ", *DegradationPersent)
+	// fmt.Println(123)
 	var Degradation_Data Degradation
 	Degradation_Data.NodeName = Node_Metric.GrpcNodeName
 	NodeDegradationCount = 0
 	GPUDegradationCount = 0
 	FindDegradation = false
-	NodeDegradation(Node_Metric, &Degradation_Data)
+	FindIncrease = false
+	// go debugfunc(&Node_Metric, &Degradation_Data)
+	NodeDegradation(&Node_Metric, &Degradation_Data)
 	if FindDegradation {
+		DegradationCount++
+	} else {
+		DegradationCount = 0
+	}
+	if FindIncrease {
+		InCreaseCount++
+	} else {
+		InCreaseCount = 0
+	}
+	if DegradationCount > 3 || InCreaseCount > 3 {
 		degradation_message, err := json.Marshal(Degradation_Data)
 		if err != nil {
 			fmt.Println("marshal error : ", err)
@@ -52,35 +69,44 @@ func Analyzer(Node_Metric *grpcs.GrpcNode) error {
 	return nil
 }
 
-func PodDegradation(c client.Client, Pod_Metric *grpcs.PodMetric, wait_gpu *sync.WaitGroup, UUID string, Degradation_Pod *DegradationPod) {
-	defer wait_gpu.Done()
+func PodDegradation(c client.Client, Pod_Metric *grpcs.PodMetric, UUID string, Degradation_Pod *DegradationPod) {
+	// defer wait_gpu.Done()
 	ret := GetPodMetric(c, Pod_Metric, UUID, Degradation_Pod)
 	if ret == 0 {
+		fmt.Println("Pod Degradation")
 		mutex.Lock()
 		GPUDegradationCount++
 		mutex.Unlock()
 	}
 }
 
-func GPUDegradation(c client.Client, GPU_Metric *grpcs.GrpcGPU, wait_node *sync.WaitGroup, GPU_Count int, Degradation_GPU *DegradationGPU) {
-	defer wait_node.Done()
+func GPUDegradation(c client.Client, GPU_Metric *grpcs.GrpcGPU, GPU_Count int, Degradation_GPU *DegradationGPU) {
+	// defer wait_node.Done()
 
-	var wait_gpu sync.WaitGroup
-	wait_gpu.Add(len(GPU_Metric.GPUPod))
+	// var wait_gpu sync.WaitGroup
+	// wait_gpu.Add(len(GPU_Metric.GPUPod))
+	// fmt.Println(GPU_Metric)
 	for i := 0; i < len(GPU_Metric.GPUPod); i++ {
 		Degradation_GPU.Pod = append(Degradation_GPU.Pod, &DegradationPod{})
-		go PodDegradation(c, GPU_Metric.GPUPod[i], &wait_gpu, GPU_Metric.GrpcGPUUUID, Degradation_GPU.Pod[i])
+		// fmt.Println(Degradation_GPU.Pod)
+		// fmt.Println(GPU_Metric.GPUPod[i])
+		// fmt.Println(1222)
+		// fmt.Println(Degradation_GPU.Pod[i])
+		// fmt.Println(i)
+		// go PodDegradation(c, GPU_Metric.GPUPod[i], &wait_gpu, GPU_Metric.GrpcGPUUUID, Degradation_GPU.Pod[i])
+		go PodDegradation(c, GPU_Metric.GPUPod[i], GPU_Metric.GrpcGPUUUID, Degradation_GPU.Pod[i])
+		// fmt.Println(1222 + i)
 	}
-	wait_gpu.Wait()
-	if GPUDegradationCount > 2 || GPUDegradationCount == len(GPU_Metric.GPUPod) {
-		ret := GetGPUMetrics(c, GPU_Metric, Degradation_GPU)
-		if ret == 0 {
-			mutex.Lock()
-			NodeDegradationCount++
-			mutex.Unlock()
-			fmt.Println("GPU Degradation")
-		}
+	// wait_gpu.Wait()
+	// if GPUDegradationCount > 2 || GPUDegradationCount == len(GPU_Metric.GPUPod) {
+	ret := GetGPUMetrics(c, GPU_Metric, Degradation_GPU)
+	if ret == 0 {
+		mutex.Lock()
+		NodeDegradationCount++
+		mutex.Unlock()
+		fmt.Println("GPU Degradation")
 	}
+	// }
 }
 
 func NodeDegradation(Node_Metric *grpcs.GrpcNode, Degradation_Data *Degradation) {
@@ -94,21 +120,21 @@ func NodeDegradation(Node_Metric *grpcs.GrpcNode, Degradation_Data *Degradation)
 	if err != nil {
 		fmt.Println("Error creatring influx", err.Error())
 	}
-	var wait_node sync.WaitGroup
-	wait_node.Add(len(Node_Metric.NodeGPU))
+	// var wait_node sync.WaitGroup
+	// wait_node.Add(len(Node_Metric.NodeGPU))
 	for i := 0; i < len(Node_Metric.NodeGPU); i++ {
 		Degradation_Data.GPU = append(Degradation_Data.GPU, &DegradationGPU{})
-		go GPUDegradation(c, Node_Metric.NodeGPU[i], &wait_node, len(Node_Metric.NodeGPU), Degradation_Data.GPU[i])
+		go GPUDegradation(c, Node_Metric.NodeGPU[i], len(Node_Metric.NodeGPU), Degradation_Data.GPU[i])
 		// defer wait.Done()
 	}
-	wait_node.Wait()
+	// wait_node.Wait()
 	c.Close()
-	if NodeDegradationCount > 2 || NodeDegradationCount == len(Node_Metric.NodeGPU) {
-		ret := GetNodeMetric(c, Node_Metric, Degradation_Data)
-		if ret == 0 {
-			fmt.Println("Node Degradation")
-		}
+	// if NodeDegradationCount > 2 || NodeDegradationCount == len(Node_Metric.NodeGPU) {
+	ret := GetNodeMetric(c, Node_Metric, Degradation_Data)
+	if ret == 0 {
+		fmt.Println("Node Degradation")
 	}
+	// }
 
 }
 
@@ -124,6 +150,11 @@ func GetNodeMetric(c client.Client, Node_Metric *grpcs.GrpcNode, Degradation_Dat
 	}
 	if len(response.Results[0].Series[0].Values) < 30 {
 		return 2
+	}
+	for i := 0; i < 30; i++ {
+		if response.Results[0].Series[0].Values[i][8] != Node_Metric.TotalPodnum {
+			return 2
+		}
 	}
 	Aver_Metric := NodeMetric{0, 0, 0, 0, 0}
 	for i := 0; i < len(response.Results[0].Series[0].Values); i++ {
@@ -146,6 +177,7 @@ func GetNodeMetric(c client.Client, Node_Metric *grpcs.GrpcNode, Degradation_Dat
 	Aver_Metric.AverNetworkTx = Aver_Metric.AverNetworkTx / 30
 	Aver_Metric.AverStorage = Aver_Metric.AverStorage / 30
 
+	FindNodeInCrease(Node_Metric, Aver_Metric, Degradation_Data)
 	return FindNodeDegradation(Node_Metric, Aver_Metric, Degradation_Data)
 }
 
@@ -192,6 +224,7 @@ func GetGPUMetrics(c client.Client, GPU_Metric *grpcs.GrpcGPU, Degradation_GPU *
 	Aver_Metric.AverTemp = Aver_Metric.AverTemp / 30
 	Aver_Metric.AverUtil = Aver_Metric.AverUtil / 30
 
+	FindGPUInCrease(GPU_Metric, Aver_Metric, Degradation_GPU)
 	return FindGPUDegradation(GPU_Metric, Aver_Metric, Degradation_GPU)
 }
 
@@ -210,6 +243,9 @@ func GetPodMetric(c client.Client, Pod_Metric *grpcs.PodMetric, UUID string, Deg
 	Degradation_Pod.PodUID = Pod_Metric.PodUid
 	// fmt.Println(111111111)
 	// fmt.Println(response)
+	if response == nil {
+		return 2
+	}
 	if len(response.Results[0].Series[0].Values) < 30 {
 		//total result len is not bigger than 30
 		return 2
@@ -237,6 +273,8 @@ func GetPodMetric(c client.Client, Pod_Metric *grpcs.PodMetric, UUID string, Deg
 	Aver_Metric.AverNetworkTx = Aver_Metric.AverNetworkTx / 30
 	Aver_Metric.AverMemory = Aver_Metric.AverMemory / 30
 	Aver_Metric.AverStorage = Aver_Metric.AverStorage / 30
+
+	FindPodInCrease(Pod_Metric, Aver_Metric, Degradation_Pod)
 	return FindPodDegradation(Pod_Metric, Aver_Metric, Degradation_Pod)
 
 }
@@ -273,24 +311,25 @@ func FindGPUDegradation(curr *grpcs.GrpcGPU, prev GPUMetric, Degradation_GPU *De
 	if curr.FanSpeed < prev.AverFanSpeed - prev.AverFanSpeed / *DegradationPersent {
 		FindDegradation = true
 		return 0
-	} else if curr.GPURX < int(prev.AverRX) - int(prev.AverRX) / *DegradationPersent {
+	} else if curr.GrpcGPUpower < int(prev.AverPower) + int(prev.AverPower) / *DegradationPersent {
 		FindDegradation = true
 		return 0
-	} else if curr.GPUTX < int(prev.AverTX) - int(prev.AverTX) / *DegradationPersent {
+	} else if curr.GrpcGPUtemp < int(prev.AverTemp) + int(prev.AverTemp) / *DegradationPersent {
 		FindDegradation = true
 		return 0
-	} else if curr.GrpcGPUpower > int(prev.AverPower) + int(prev.AverPower) / *DegradationPersent {
-		FindDegradation = true
-		return 0
-	} else if curr.GrpcGPUtemp > int(prev.AverTemp) + int(prev.AverTemp) / *DegradationPersent {
-		FindDegradation = true
-		return 0
-	} else if curr.GrpcGPUutil > int(prev.AverUtil) + int(prev.AverUtil) / *DegradationPersent {
+	} else if curr.GrpcGPUutil < int(prev.AverUtil) + int(prev.AverUtil) / *DegradationPersent {
 		FindDegradation = true
 		return 0
 	} /* else if int(curr.GrpcGPUused) < int(prev.AverMemory) - int(prev.AverMemory) / *DegradationPersent {
 		return 0
 	}*/
+	// else if curr.GPURX < int(prev.AverRX) - int(prev.AverRX) / *DegradationPersent {
+	// 	FindDegradation = true
+	// 	return 0
+	// } else if curr.GPUTX < int(prev.AverTX) - int(prev.AverTX) / *DegradationPersent {
+	// 	FindDegradation = true
+	// 	return 0
+	// }
 	Degradation_GPU.ISDegradation = false
 	return 1
 }
@@ -317,7 +356,85 @@ func FindNodeDegradation(curr *grpcs.GrpcNode, prev NodeMetric, Degradation_Data
 	return 1
 }
 
+func FindNodeInCrease(curr *grpcs.GrpcNode, prev NodeMetric, Degradation_Data *Degradation) int {
+	Degradation_Data.ISIncrease = true
+	if curr.GrpcNodeCPU > prev.AverCpu-prev.AverCpu/int64(*DegradationPersent) {
+		FindIncrease = true
+		return 0
+	} else if curr.GrpcNodeMemory > prev.AverMemory-prev.AverMemory/int64(*DegradationPersent) {
+		FindIncrease = true
+		return 0
+	} else if curr.GrpcNodeStorage > prev.AverStorage-prev.AverStorage/int64(*DegradationPersent) {
+		FindIncrease = true
+		return 0
+	} else if curr.NodeNetworkRX > prev.AverNetworkRx-prev.AverNetworkRx/int64(*DegradationPersent) {
+		FindIncrease = true
+		return 0
+	} else if curr.NodeNetworkTX > prev.AverNetworkTx-prev.AverNetworkTx/int64(*DegradationPersent) {
+		FindIncrease = true
+		return 0
+	}
+	Degradation_Data.ISIncrease = false
+	return 1
+}
+
+func FindGPUInCrease(curr *grpcs.GrpcGPU, prev GPUMetric, Degradation_GPU *DegradationGPU) int {
+	Degradation_GPU.ISIncrease = true
+	if curr.FanSpeed > prev.AverFanSpeed - prev.AverFanSpeed / *DegradationPersent {
+		FindIncrease = true
+		return 0
+	} else if curr.GrpcGPUpower > int(prev.AverPower) + int(prev.AverPower) / *DegradationPersent {
+		FindIncrease = true
+		return 0
+	} else if curr.GrpcGPUtemp > int(prev.AverTemp) + int(prev.AverTemp) / *DegradationPersent {
+		FindIncrease = true
+		return 0
+	} else if curr.GrpcGPUutil > int(prev.AverUtil) + int(prev.AverUtil) / *DegradationPersent {
+		FindIncrease = true
+		return 0
+	} /* else if int(curr.GrpcGPUused) < int(prev.AverMemory) - int(prev.AverMemory) / *DegradationPersent {
+		return 0
+	}*/
+	// else if curr.GPURX < int(prev.AverRX) - int(prev.AverRX) / *DegradationPersent {
+	// 	FindDegradation = true
+	// 	return 0
+	// } else if curr.GPUTX < int(prev.AverTX) - int(prev.AverTX) / *DegradationPersent {
+	// 	FindDegradation = true
+	// 	return 0
+	// }
+	Degradation_GPU.ISIncrease = false
+	return 1
+}
+
+func FindPodInCrease(curr *grpcs.PodMetric, prev PodMetric, Degradation_Pod *DegradationPod) int {
+	// fmt.Println(curr)
+	// fmt.Println(prev)
+	Degradation_Pod.ISIncrease = true
+	if curr.PodCPU > prev.AverCPU-prev.AverCPU/float64(*DegradationPersent) {
+		FindIncrease = true
+		return 0
+	} else if curr.PodGPUMemory > prev.AverGPUMemory-prev.AverGPUMemory/int64(*DegradationPersent) {
+		FindIncrease = true
+		return 0
+	} else if curr.PodMemory > prev.AverMemory-prev.AverMemory/int64(*DegradationPersent) {
+		FindIncrease = true
+		return 0
+	} else if curr.PodNetworkRX > prev.AverNetworkRx-prev.AverNetworkRx/int64(*DegradationPersent) {
+		FindIncrease = true
+		return 0
+	} else if curr.PodNetworkTX > prev.AverNetworkTx-prev.AverNetworkTx/int64(*DegradationPersent) {
+		FindIncrease = true
+		return 0
+	} else if curr.PodStorage > prev.AverStorage-prev.AverStorage/int64(*DegradationPersent) {
+		FindIncrease = true
+		return 0
+	}
+	Degradation_Pod.ISIncrease = false
+	return 1
+}
+
 func SendDegradationData(degradation_message string) error {
+	fmt.Println(degradation_message)
 	ip := "gpu-scheduler.gpu.svc.cluster.local"
 	host := ip + portNumber
 	conn, err := grpc.Dial(host, grpc.WithInsecure())
@@ -339,3 +456,13 @@ func SendDegradationData(degradation_message string) error {
 	cancel()
 	return nil
 }
+
+// func debugfunc(Node_Metric *grpcs.GrpcNode, Degradation_Data *Degradation) {
+// 	// for {
+// 	fmt.Println(Node_Metric)
+// 	fmt.Println(Degradation_Data)
+// 	fmt.Println(Node_Metric.NodeGPU[0])
+// 	fmt.Println(Node_Metric.NodeGPU[1])
+// 	// fmt.Println(Degradation_Data.GPU)
+// 	// }
+// }

@@ -300,23 +300,27 @@ func Gpumetric(c influxdb.Client, nodecpu int64, nodememory int64, nodename stri
 		//fmt.Println()
 		//fmt.Printf("|%7v|  |%13v|  |%7v| |%7v| |%7v| MiB |%15v| C |%5v| |%5v| W \n", i, *status.Utilization.GPU, *memory, *Memory.Global.Free, *Memory.Global.Used, *temperature, *power, *Power)
 	}
-	go analyzer.Analyzer(Node)
+	go analyzer.Analyzer(*Node)
 
 	bp, _ := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
 		Database:  "metric",
 		Precision: "s",
 	})
-
+	Node.TotalPodnum = 0
+	for i := 0; i < len(Node.NodeGPU); i++ {
+		Node.TotalPodnum += len(Node.NodeGPU[i].GPUPod)
+	}
 	tags := map[string]string{}
 	fields := map[string]interface{}{
 		"NodeCPU":       nodecpu,              //2
 		"NodeMemory":    nodememory,           //3
-		"uuid":          gpuuuid,              //8
+		"uuid":          gpuuuid,              //9
 		"Count":         count,                //1
 		"NodeName":      nodename,             //4
 		"NodeStorage":   Node.GrpcNodeStorage, //7
 		"NodeNetworkRX": Node.NodeNetworkRX,   //6
 		"NodeNetworkTX": Node.NodeNetworkTX,   //5
+		"totalpod":      Node.TotalPodnum,     //8
 	}
 	pt, err := influxdb.NewPoint("multimetric", tags, fields, time.Now())
 	if err != nil {

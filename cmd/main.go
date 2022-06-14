@@ -107,6 +107,11 @@ func main() {
 	if err != nil {
 		fmt.Println("Error creatring influx", err.Error())
 	}
+	dropdatabase := influxdb.Query{
+		Command:  "drop database metric",
+		Database: "_internal",
+	}
+	c.Query(dropdatabase)
 	makedatabase := influxdb.Query{
 		Command:  "create database metric",
 		Database: "_internal",

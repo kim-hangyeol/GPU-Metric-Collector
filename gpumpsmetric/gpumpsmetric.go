@@ -1,6 +1,7 @@
 package gpumpsmetric
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log"
@@ -44,18 +45,20 @@ type Runningpod struct {
 type GpuMpsMap struct {
 	UUID string
 	// useMemory int
-	UID       string
-	Container string
-	Pod       string
-	PID       uint
-	Index     int
-	RunFlag   int
-	StartTime time.Time
+	UID         string
+	Container   string
+	ContainerID string
+	Pod         string
+	PID         uint
+	Index       int
+	RunFlag     int
+	StartTime   time.Time
 }
 
 type processinfo struct {
 	nvmlprocess []nvml.ProcessInfo
 	Name        []string
+	ContainerID []string
 }
 
 func getpodlist() (*v1.PodList, error) {
@@ -80,23 +83,52 @@ func getpodlist() (*v1.PodList, error) {
 	return podlist, nil
 }
 
+func getgpuprocess(device nvml.Device, mps *processinfo) int {
+	mpscount := 0
+	mps.nvmlprocess, _ = device.GetMPSComputeRunningProcesses()
+	mps.Name = nil
+	mps.ContainerID = nil
+	for i := 0; i < len(mps.nvmlprocess); i++ {
+		// GPU_Metric.GPUPod = append(GPU_Metric.GPUPod, &grpcs.PodMetric{})
+		// fmt.Println(mps.nvmlprocess[i].Pid)
+		pid := fmt.Sprint(mps.nvmlprocess[i].Pid)
+		cgroupfile, _ := os.Open("/proc/" + pid + "/cgroup")
+		cgroupscanner := bufio.NewScanner(cgroupfile)
+		for cgroupscanner.Scan() {
+			cgroup := cgroupscanner.Text()
+			cgroups := strings.Split(cgroup, "/")
+			if cgroups[1] == "kubepods" {
+				if len(cgroups) > 4 {
+					mps.ContainerID = append(mps.ContainerID, cgroups[4])
+					mpscount++
+					break
+				} else {
+					mps.ContainerID = append(mps.ContainerID, "")
+				}
+			} else {
+				continue
+			}
+		}
+		processname, _ := nvml.SystemGetProcessName(int(mps.nvmlprocess[i].Pid))
+		mps.Name = append(mps.Name, processname)
+		// GPU_Metric.GPUPod[i].ProcessName = processname
+	}
+	// fmt.Println(mpscount)
+	return mpscount
+}
+
 // var firstnum = 0
 
 func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storage.Collection, podmap []*storage.PodGPU, GPU_Metric *grpcs.GrpcGPU) int {
 
 	var gpumpsmap [48]GpuMpsMap
 	var mps processinfo
+
 	//var pidtable []uint
 	//var mapping [10]int
 	UUID, _ := device.GetUUID()
-	mps.nvmlprocess, _ = device.GetMPSComputeRunningProcesses()
-	mps.Name = nil
-	for i := 0; i < len(mps.nvmlprocess); i++ {
-		// GPU_Metric.GPUPod = append(GPU_Metric.GPUPod, &grpcs.PodMetric{})
-		processname, _ := nvml.SystemGetProcessName(int(mps.nvmlprocess[i].Pid))
-		mps.Name = append(mps.Name, processname)
-		// GPU_Metric.GPUPod[i].ProcessName = processname
-	}
+	// mpscount := getgpuprocess(device, &mps)
+
 	//fmt.Println(mps)
 	// if err != nvml.SUCCESS {
 	// 	log.Fatalln(err)
@@ -109,10 +141,13 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 			time.Sleep(time.Millisecond)
 		}
 		podnum := 0
+		mpscount := getgpuprocess(device, &mps)
+		// fmt.Println(mps)
 		podlist, err := getpodlist()
 		if err != nil {
 			log.Fatalln(err)
 		}
+		// fmt.Println(podlist)
 		for i := 0; i < len(podlist.Items); i++ { //container creating 때문에 갯수가 안맞는듯?
 			annotation := podlist.Items[i].ObjectMeta.Annotations["UUID"]
 			annotationUUID := strings.Split(annotation, ",")
@@ -126,14 +161,21 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 				}
 			} else {
 				if podlist.Items[i].ObjectMeta.Annotations["UUID"] == UUID {
+					// fmt.Println(podlist.Items[i])
 					//fmt.Printf("running pod name : %v\n", podlist.Items[i].ObjectMeta.Name)
 					// gpumpsmap[podnum].Container = podlist.Items[i].Spec.Containers[0].Name
 					// gpumpsmap[podnum].Pod = podlist.Items[i].ObjectMeta.Name
 					podnum++
+					// fmt.Println(podnum)
 				}
+				// fmt.Println(podnum)
 			}
+			// fmt.Println(podnum)
 		}
-		if podnum == len(mps.nvmlprocess) {
+		// fmt.Println(podnum)
+		// fmt.Println(podnum)
+		// fmt.Println(mpscount)
+		if podnum == mpscount {
 			runpodlist = append(runpodlist, podlist.Items...)
 			//fmt.Printf("running pod num : %v\nrunning process num : %v\n", podnum, len(mps))
 			//runpodlist = *podlist
@@ -157,9 +199,11 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 		if len(annotationUUID) > 1 {
 			for j := 0; j < len(annotationUUID); j++ {
 				if annotationUUID[j] == UUID {
+					gpumpsmap[podnum].UID = string(runpodlist[i].UID)
 					gpumpsmap[podnum].Container = runpodlist[i].Spec.Containers[0].Name
 					gpumpsmap[podnum].Pod = runpodlist[i].ObjectMeta.Name
 					gpumpsmap[podnum].StartTime = runpodlist[i].Status.ContainerStatuses[0].State.Running.StartedAt.Time.Local()
+					gpumpsmap[podnum].ContainerID = runpodlist[i].Status.ContainerStatuses[0].ContainerID
 					runpod = runpod + runpodlist[i].ObjectMeta.Name
 					podnum++
 				}
@@ -171,21 +215,22 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 				gpumpsmap[podnum].Container = runpodlist[i].Spec.Containers[0].Name
 				gpumpsmap[podnum].Pod = runpodlist[i].ObjectMeta.Name
 				gpumpsmap[podnum].StartTime = runpodlist[i].Status.ContainerStatuses[0].State.Running.StartedAt.Time.Local()
+				gpumpsmap[podnum].ContainerID = runpodlist[i].Status.ContainerStatuses[0].ContainerID
 				runpod = runpod + runpodlist[i].ObjectMeta.Name
 				podnum++
 			}
 		}
 	}
-	for i := 0; i < podnum; i++ {
-		for j := i + 1; j < podnum; j++ {
-			if gpumpsmap[i].StartTime.Before(gpumpsmap[j].StartTime) {
-				temppod := gpumpsmap[i]
-				gpumpsmap[i] = gpumpsmap[j]
-				gpumpsmap[j] = temppod
-			}
-			//fmt.Println(runpodlist[j].Status.ContainerStatuses[0].State.Running.StartedAt.Time.Local().Unix())
-		}
-	}
+	// for i := 0; i < podnum; i++ {
+	// 	for j := i + 1; j < podnum; j++ {
+	// 		if gpumpsmap[i].StartTime.Before(gpumpsmap[j].StartTime) {
+	// 			temppod := gpumpsmap[i]
+	// 			gpumpsmap[i] = gpumpsmap[j]
+	// 			gpumpsmap[j] = temppod
+	// 		}
+	// 		//fmt.Println(runpodlist[j].Status.ContainerStatuses[0].State.Running.StartedAt.Time.Local().Unix())
+	// 	}
+	// }
 	// fmt.Println(podnum)
 	//fmt.Println("podnum = ", podnum)
 	// var timetable []int // 1은 쿠버 2는 슬럼
@@ -220,21 +265,31 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 	//var isnewpod = 1
 	//var newpodcount = 0
 	for i := 0; i < podnum; i++ {
-		GPU_Metric.GPUPod = append(GPU_Metric.GPUPod, &grpcs.PodMetric{})
-		GPU_Metric.GPUPod[i].PodGPUMemory = int64(mps.nvmlprocess[i].UsedGpuMemory)
-		GPU_Metric.GPUPod[i].PodPid = mps.nvmlprocess[i].Pid
-		GPU_Metric.GPUPod[i].PodName = gpumpsmap[i].Pod
-		GPU_Metric.GPUPod[i].ProcessName = mps.Name[i]
-		GPU_Metric.GPUPod[i].PodUid = gpumpsmap[i].UID
-		for j := 0; j < len(data.Metricsbatchs[0].Pods); j++ {
-			if GPU_Metric.GPUPod[i].PodName == data.Metricsbatchs[0].Pods[j].Name {
-				GPU_Metric.GPUPod[i].PodCPU = float64(data.Metricsbatchs[0].Pods[j].CPUUsageNanoCores.Value())
-				GPU_Metric.GPUPod[i].PodStorage = int64(data.Metricsbatchs[0].Pods[j].FsUsedBytes.Value())
-				GPU_Metric.GPUPod[i].PodNetworkTX = int64(data.Metricsbatchs[0].Pods[j].NetworkTxBytes.Value())
-				GPU_Metric.GPUPod[i].PodNetworkRX = int64(data.Metricsbatchs[0].Pods[j].NetworkRxBytes.Value())
-				GPU_Metric.GPUPod[i].PodMemory = int64(data.Metricsbatchs[0].Pods[j].MemoryUsageBytes.Value())
+		for k := 0; k < len(mps.ContainerID); k++ {
+			if mps.ContainerID[k] == "" {
+				continue
+			}
+			containerid := strings.Split(gpumpsmap[i].ContainerID, "/")[2]
+			if mps.ContainerID[k] == containerid {
+				GPU_Metric.GPUPod = append(GPU_Metric.GPUPod, &grpcs.PodMetric{})
+				GPU_Metric.GPUPod[i].PodGPUMemory = int64(mps.nvmlprocess[k].UsedGpuMemory)
+				GPU_Metric.GPUPod[i].PodPid = mps.nvmlprocess[k].Pid
+				GPU_Metric.GPUPod[i].PodName = gpumpsmap[i].Pod
+				GPU_Metric.GPUPod[i].ProcessName = mps.Name[k]
+				GPU_Metric.GPUPod[i].PodUid = gpumpsmap[i].UID
+				for j := 0; j < len(data.Metricsbatchs[0].Pods); j++ {
+					if GPU_Metric.GPUPod[i].PodName == data.Metricsbatchs[0].Pods[j].Name {
+						GPU_Metric.GPUPod[i].PodCPU = float64(data.Metricsbatchs[0].Pods[j].CPUUsageNanoCores.MilliValue())
+						GPU_Metric.GPUPod[i].PodStorage = int64(data.Metricsbatchs[0].Pods[j].FsUsedBytes.Value())
+						GPU_Metric.GPUPod[i].PodNetworkTX = int64(data.Metricsbatchs[0].Pods[j].NetworkTxBytes.Value())
+						GPU_Metric.GPUPod[i].PodNetworkRX = int64(data.Metricsbatchs[0].Pods[j].NetworkRxBytes.Value())
+						GPU_Metric.GPUPod[i].PodMemory = int64(data.Metricsbatchs[0].Pods[j].MemoryUsageBytes.Value())
+					}
+				}
+				break
 			}
 		}
+
 		// GPU_Metric.GPUPod[i].PodMemory =
 	}
 	// for i := 0; i < podnum; i++ {

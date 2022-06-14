@@ -31,6 +31,7 @@ type GrpcNode struct {
 	GrpcNodeStorage      int64
 	NodeNetworkRX        int64
 	NodeNetworkTX        int64
+	TotalPodnum          int
 	GrpcNodeUUID         []string
 	NodeGPU              []*GrpcGPU
 }
