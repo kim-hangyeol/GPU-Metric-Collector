@@ -97,8 +97,9 @@ func getgpuprocess(device nvml.Device, mps *processinfo) int {
 		for cgroupscanner.Scan() {
 			cgroup := cgroupscanner.Text()
 			cgroups := strings.Split(cgroup, "/")
+			fmt.Println(cgroups)
 			if cgroups[1] == "kubepods" {
-				if len(cgroups) > 4 {
+				if len(cgroups) > 3 {
 					mps.ContainerID = append(mps.ContainerID, cgroups[4])
 					mpscount++
 					break
@@ -127,6 +128,7 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 	//var pidtable []uint
 	//var mapping [10]int
 	UUID, _ := device.GetUUID()
+	// fmt.Println(UUID)
 	// mpscount := getgpuprocess(device, &mps)
 
 	//fmt.Println(mps)
@@ -149,7 +151,7 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 		}
 		// fmt.Println(podlist)
 		for i := 0; i < len(podlist.Items); i++ { //container creating 때문에 갯수가 안맞는듯?
-			annotation := podlist.Items[i].ObjectMeta.Annotations["UUID"]
+			annotation := podlist.Items[i].Annotations["UUID"]
 			annotationUUID := strings.Split(annotation, ",")
 			if len(annotationUUID) > 1 {
 				for j := 0; j < len(annotationUUID); j++ {
@@ -160,7 +162,7 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 					}
 				}
 			} else {
-				if podlist.Items[i].ObjectMeta.Annotations["UUID"] == UUID {
+				if podlist.Items[i].Annotations["UUID"] == UUID {
 					// fmt.Println(podlist.Items[i])
 					//fmt.Printf("running pod name : %v\n", podlist.Items[i].ObjectMeta.Name)
 					// gpumpsmap[podnum].Container = podlist.Items[i].Spec.Containers[0].Name
@@ -175,10 +177,12 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 		// fmt.Println(podnum)
 		// fmt.Println(podnum)
 		// fmt.Println(mpscount)
-		if podnum == mpscount {
+		if podnum == mpscount && podnum != 0 {
 			runpodlist = append(runpodlist, podlist.Items...)
 			//fmt.Printf("running pod num : %v\nrunning process num : %v\n", podnum, len(mps))
 			//runpodlist = *podlist
+			break
+		} else if podnum == 0 && mpscount == 0 {
 			break
 		}
 	}
@@ -191,11 +195,14 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 	// 		}
 	// 	}
 	// }
-
 	podnum := 0
+	// fmt.Println(runpodlist)
 	for i := 0; i < len(runpodlist); i++ {
-		annotation := runpodlist[i].ObjectMeta.Annotations["UUID"]
+		annotation := runpodlist[i].Annotations["UUID"]
+		// fmt.Println(annotation)
 		annotationUUID := strings.Split(annotation, ",")
+		// fmt.Println(annotationUUID)
+		// fmt.Println(runpodlist[i].Annotations["UUID"], " ", UUID)
 		if len(annotationUUID) > 1 {
 			for j := 0; j < len(annotationUUID); j++ {
 				if annotationUUID[j] == UUID {
@@ -209,8 +216,8 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 				}
 			}
 		} else {
-			if runpodlist[i].ObjectMeta.Annotations["UUID"] == UUID {
-				//fmt.Printf("running pod name : %v\n", podlist.Items[i].ObjectMeta.Name)
+			if runpodlist[i].Annotations["UUID"] == UUID {
+				fmt.Printf("running pod name : %v\n", runpodlist[i].Name)
 				gpumpsmap[podnum].UID = string(runpodlist[i].UID)
 				gpumpsmap[podnum].Container = runpodlist[i].Spec.Containers[0].Name
 				gpumpsmap[podnum].Pod = runpodlist[i].ObjectMeta.Name
@@ -221,6 +228,7 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 			}
 		}
 	}
+	// fmt.Println(podnum)
 	// for i := 0; i < podnum; i++ {
 	// 	for j := i + 1; j < podnum; j++ {
 	// 		if gpumpsmap[i].StartTime.Before(gpumpsmap[j].StartTime) {

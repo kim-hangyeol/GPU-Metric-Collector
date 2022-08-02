@@ -8,6 +8,8 @@ require (
 	github.com/NVIDIA/go-nvml v0.11.6-0
 	github.com/NVIDIA/gpu-monitoring-tools v0.0.0-20210803220325-7c362b2f4913 // indirect
 	github.com/influxdata/influxdb1-client v0.0.0-20200827194710-b269163b24ab
+	github.com/sajari/regression v1.0.1
+	gonum.org/v1/gonum v0.11.0 // indirect
 	google.golang.org/grpc v1.41.0
 	google.golang.org/protobuf v1.27.1
 	k8s.io/api v0.22.0
