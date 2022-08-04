@@ -675,7 +675,7 @@ func GetPodPattern(c client.Client, curr *grpcs.PodMetric, UUID string) bool {
 	r.SetVar(0, "var1")
 	r.SetVar(1, "var2")
 	r.SetVar(2, "var3")
-	for i := len(response.Results[0].Series[0].Values) - 1; i == 0; i-- {
+	for i := len(response.Results[0].Series[0].Values) - 1; i < 0; i-- {
 		myPodMetric := response.Results[0].Series[0].Values[i]
 		// fmt.Println(myPodMetric...)
 		AverCPU, _ := strconv.ParseFloat(fmt.Sprintf("%s", myPodMetric[2]), 64)

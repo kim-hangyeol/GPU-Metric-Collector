@@ -55,6 +55,8 @@ var GPU []*grpcs.GrpcGPU
 
 var gpuuuid []string
 
+var prevNodeStorage int64
+
 func main() {
 	Node = append(Node, &grpcs.GrpcNode{})
 	count := 0
@@ -280,25 +282,29 @@ func MemberMetricCollector() (*storage.Collection, int64, int64, int64, int64, i
 
 func (s *UserServer) GetNode(ctx context.Context, req *userpb.GetNodeRequest) (*userpb.GetNodeResponse, error) {
 	var userNodeMessage *userpb.NodeMessage
-	var maxgpumemory = int64(0)
-	for i := range gpuuuid {
-		if maxgpumemory < int64(GPU[i].GrpcGPUtotal) {
-			maxgpumemory = int64(GPU[i].GrpcGPUtotal)
-		}
+	// var maxgpumemory = int64(0)
+	// for i := range gpuuuid {
+	// 	if maxgpumemory < int64(GPU[i].GrpcGPUtotal) {
+	// 		maxgpumemory = int64(GPU[i].GrpcGPUtotal)
+	// 	}
 
-	}
+	// }
 	var nodedata = &userpb.NodeMessage{
-		NodeName:         Node[0].GrpcNodeName,
-		NodeTotalcpu:     Node[0].GrpcNodetotalCPU,
-		NodeCpu:          Node[0].GrpcNodeCPU,
-		GpuCount:         int64(Node[0].GrpcNodeCount),
-		NodeTotalmemory:  Node[0].GrpcNodeTotalMemory,
-		NodeMemory:       Node[0].GrpcNodeMemory,
-		NodeTotalstorage: Node[0].GrpcNodeTotalStorage,
-		NodeStorage:      Node[0].GrpcNodeStorage,
-		GpuUuid:          strings.Join(Node[0].GrpcNodeUUID, " "),
-		MaxGpuMemory:     maxgpumemory,
+		NodeName: Node[0].GrpcNodeName,
+		// NodeTotalcpu:     Node[0].GrpcNodetotalCPU,
+		NodeCpu: Node[0].GrpcNodeCPU,
+		// GpuCount:         int64(Node[0].GrpcNodeCount),
+		// NodeTotalmemory:  Node[0].GrpcNodeTotalMemory,
+		NodeMemory: Node[0].GrpcNodeMemory,
+		// NodeTotalstorage: Node[0].GrpcNodeTotalStorage,
+		NodeStorage: Node[0].GrpcNodeStorage,
+		// GpuUuid:          strings.Join(Node[0].GrpcNodeUUID, " "),
+		// MaxGpuMemory:     maxgpumemory,
 	}
+	if prevNodeStorage != Node[0].GrpcNodeTotalStorage {
+		nodedata.NodeTotalstorage = Node[0].GrpcNodeTotalStorage
+	}
+	prevNodeStorage = Node[0].GrpcNodeTotalStorage
 	userNodeMessage = nodedata
 	//fmt.Println(nodedata)
 	return &userpb.GetNodeResponse{
@@ -319,18 +325,19 @@ func (s *UserServer) GetGPU(ctx context.Context, req *userpb.GetGPURequest) (*us
 			GPU[i].GrpcGPUmpscount = 0
 		}
 		var gpudata = &userpb.GPUMessage{
-			GpuUuid:   GPU[i].GrpcGPUUUID,
-			GpuUsed:   uint64(GPU[i].GrpcGPUused),
-			GpuName:   GPU[i].GrpcGPUName,
-			GpuIndex:  int64(GPU[i].GrpcGPUIndex),
-			GpuTotal:  uint64(GPU[i].GrpcGPUtotal),
-			GpuFree:   uint64(GPU[i].GrpcGPUfree),
-			GpuTemp:   int64(GPU[i].GrpcGPUtemp),
-			GpuPower:  int64(GPU[i].GrpcGPUpower),
-			MpsCount:  int64(GPU[i].GrpcGPUmpscount),
-			GpuFlops:  int64(GPU[i].GrpcGPUflops),
-			GpuArch:   int64(GPU[i].GrpcGPUarch),
-			GpuTpower: int64(GPU[i].GrpcGPUtotalpower),
+			// GpuUuid:   GPU[i].GrpcGPUUUID,
+			GpuUsed: uint64(GPU[i].GrpcGPUused),
+			// GpuName:   GPU[i].GrpcGPUName,
+			// GpuIndex:  int64(GPU[i].GrpcGPUIndex),
+			// GpuTotal:  uint64(GPU[i].GrpcGPUtotal),
+			GpuFree:  uint64(GPU[i].GrpcGPUfree),
+			GpuTemp:  int64(GPU[i].GrpcGPUtemp),
+			GpuPower: int64(GPU[i].GrpcGPUpower),
+			MpsCount: int64(GPU[i].GrpcGPUmpscount),
+			GpuUtil:  int64(GPU[i].GrpcGPUutil),
+			// GpuFlops:  int64(GPU[i].GrpcGPUflops),
+			// GpuArch:   int64(GPU[i].GrpcGPUarch),
+			// GpuTpower: int64(GPU[i].GrpcGPUtotalpower),
 		}
 		userGPUMessage = gpudata
 		break
@@ -345,58 +352,96 @@ func (s *UserServer) GetGPU(ctx context.Context, req *userpb.GetGPURequest) (*us
 func (s *UserServer) GetInitData(ctx context.Context, req *userpb.InitRequest) (*userpb.InitMessage, error) {
 
 	time.Sleep(time.Second * time.Duration(*collect_time))
-	var userInitMessage *userpb.InitMessage
 	var maxgpumemory = int64(0)
-	for i := range gpuuuid {
+	for i := 0; i < len(gpuuuid); i++ {
 		if maxgpumemory < int64(GPU[i].GrpcGPUtotal) {
 			maxgpumemory = int64(GPU[i].GrpcGPUtotal)
 		}
 
 	}
 
-	userInitMessage.InitNode.NodeName = Node[0].GrpcNodeName
-	userInitMessage.InitNode.NodeTotalcpu = Node[0].GrpcNodetotalCPU
-	userInitMessage.InitNode.NodeCpu = Node[0].GrpcNodeCPU
-	userInitMessage.InitNode.GpuCount = int64(Node[0].GrpcNodeCount)
-	userInitMessage.InitNode.NodeTotalmemory = Node[0].GrpcNodeTotalMemory
-	userInitMessage.InitNode.NodeMemory = Node[0].GrpcNodeMemory
-	userInitMessage.InitNode.NodeTotalstorage = Node[0].GrpcNodeTotalStorage
-	userInitMessage.InitNode.NodeStorage = Node[0].GrpcNodeStorage
-	userInitMessage.InitNode.GpuUuid = strings.Join(Node[0].GrpcNodeUUID, " ")
-	userInitMessage.InitNode.MaxGpuMemory = maxgpumemory
+	var gpu1index []string
+	var gpu2index []string
+	var lanes []int32
+
+	var grpcgpudata []*userpb.GPUMessage
 
 	for i := 0; i < len(Node[0].NvLinkInfo); i++ {
-		userInitMessage.InitNode.Gpu1Index = append(userInitMessage.InitNode.Gpu1Index, Node[0].NvLinkInfo[i].GPU1UUID)
-		userInitMessage.InitNode.Gpu2Index = append(userInitMessage.InitNode.Gpu2Index, Node[0].NvLinkInfo[i].GPU2UUID)
-		userInitMessage.InitNode.Lanecount = append(userInitMessage.InitNode.Lanecount, int32(Node[0].NvLinkInfo[i].CountLink))
+		gpu1index = append(gpu1index, Node[0].NvLinkInfo[i].GPU1UUID)
+		gpu2index = append(gpu2index, Node[0].NvLinkInfo[i].GPU2UUID)
+		lanes = append(lanes, int32(Node[0].NvLinkInfo[i].CountLink))
 	}
 
+	var Nodedata = &userpb.NodeMessage{
+		NodeName:         Node[0].GrpcNodeName,
+		NodeTotalcpu:     Node[0].GrpcNodetotalCPU,
+		NodeCpu:          Node[0].GrpcNodeCPU,
+		GpuCount:         int64(Node[0].GrpcNodeCount),
+		NodeTotalmemory:  Node[0].GrpcNodeTotalMemory,
+		NodeMemory:       Node[0].GrpcNodeMemory,
+		NodeTotalstorage: Node[0].GrpcNodeTotalStorage,
+		NodeStorage:      Node[0].GrpcNodeStorage,
+		GpuUuid:          strings.Join(Node[0].GrpcNodeUUID, " "),
+		MaxGpuMemory:     maxgpumemory,
+		Gpu1Index:        gpu1index,
+		Gpu2Index:        gpu2index,
+		Lanecount:        lanes,
+	}
+	// userInitMessage.InitNode.NodeName = Node[0].GrpcNodeName
+	// userInitMessage.InitNode.NodeTotalcpu = Node[0].GrpcNodetotalCPU
+	// userInitMessage.InitNode.NodeCpu = Node[0].GrpcNodeCPU
+	// userInitMessage.InitNode.GpuCount = int64(Node[0].GrpcNodeCount)
+	// userInitMessage.InitNode.NodeTotalmemory = Node[0].GrpcNodeTotalMemory
+	// userInitMessage.InitNode.NodeMemory = Node[0].GrpcNodeMemory
+	// userInitMessage.InitNode.NodeTotalstorage = Node[0].GrpcNodeTotalStorage
+	// userInitMessage.InitNode.NodeStorage = Node[0].GrpcNodeStorage
+	// userInitMessage.InitNode.GpuUuid = strings.Join(Node[0].GrpcNodeUUID, " ")
+	// userInitMessage.InitNode.MaxGpuMemory = maxgpumemory
+
+	prevNodeStorage = Node[0].GrpcNodeTotalStorage
 	// userInitMessage.InitNode.Gpu1Index = Node[0].nv
 
-	for i, j := range gpuuuid {
-		userInitMessage.InitGPU = append(userInitMessage.InitGPU, &userpb.GPUMessage{})
-		userInitMessage.InitGPU[i].GpuUuid = j
+	for i := 0; i < len(gpuuuid); i++ {
+		// userInitMessage.InitGPU = append(userInitMessage.InitGPU, &userpb.GPUMessage{})
+		// userInitMessage.InitGPU[i].GpuUuid = j
 		if GPU[i].GrpcGPUmpscount < 0 {
 			GPU[i].GrpcGPUmpscount = 0
 		}
 
-		userInitMessage.InitGPU[i].GpuUsed = uint64(GPU[i].GrpcGPUused)
-		userInitMessage.InitGPU[i].GpuName = GPU[i].GrpcGPUName
-		userInitMessage.InitGPU[i].GpuIndex = int64(GPU[i].GrpcGPUIndex)
-		userInitMessage.InitGPU[i].GpuTotal = uint64(GPU[i].GrpcGPUtotal)
-		userInitMessage.InitGPU[i].GpuFree = uint64(GPU[i].GrpcGPUfree)
-		userInitMessage.InitGPU[i].GpuTemp = int64(GPU[i].GrpcGPUtemp)
-		userInitMessage.InitGPU[i].GpuPower = int64(GPU[i].GrpcGPUpower)
-		userInitMessage.InitGPU[i].MpsCount = int64(GPU[i].GrpcGPUmpscount)
-		userInitMessage.InitGPU[i].GpuFlops = int64(GPU[i].GrpcGPUflops)
-		userInitMessage.InitGPU[i].GpuArch = int64(GPU[i].GrpcGPUarch)
-		userInitMessage.InitGPU[i].GpuTpower = int64(GPU[i].GrpcGPUtotalpower)
+		var gpudata = &userpb.GPUMessage{
+			GpuUuid:   GPU[i].GrpcGPUUUID,
+			GpuUsed:   uint64(GPU[i].GrpcGPUused),
+			GpuName:   GPU[i].GrpcGPUName,
+			GpuIndex:  int64(GPU[i].GrpcGPUIndex),
+			GpuTotal:  uint64(GPU[i].GrpcGPUtotal),
+			GpuFree:   uint64(GPU[i].GrpcGPUfree),
+			GpuTemp:   int64(GPU[i].GrpcGPUtemp),
+			GpuPower:  int64(GPU[i].GrpcGPUpower),
+			MpsCount:  int64(GPU[i].GrpcGPUmpscount),
+			GpuUtil:   int64(GPU[i].GrpcGPUutil),
+			GpuFlops:  int64(GPU[i].GrpcGPUflops),
+			GpuArch:   int64(GPU[i].GrpcGPUarch),
+			GpuTpower: int64(GPU[i].GrpcGPUtotalpower),
+		}
+		// userInitMessage.InitGPU[i].GpuUsed = uint64(GPU[i].GrpcGPUused)
+		// userInitMessage.InitGPU[i].GpuName = GPU[i].GrpcGPUName
+		// userInitMessage.InitGPU[i].GpuIndex = int64(GPU[i].GrpcGPUIndex)
+		// userInitMessage.InitGPU[i].GpuTotal = uint64(GPU[i].GrpcGPUtotal)
+		// userInitMessage.InitGPU[i].GpuFree = uint64(GPU[i].GrpcGPUfree)
+		// userInitMessage.InitGPU[i].GpuTemp = int64(GPU[i].GrpcGPUtemp)
+		// userInitMessage.InitGPU[i].GpuPower = int64(GPU[i].GrpcGPUpower)
+		// userInitMessage.InitGPU[i].MpsCount = int64(GPU[i].GrpcGPUmpscount)
+		// userInitMessage.InitGPU[i].GpuFlops = int64(GPU[i].GrpcGPUflops)
+		// userInitMessage.InitGPU[i].GpuArch = int64(GPU[i].GrpcGPUarch)
+		// userInitMessage.InitGPU[i].GpuTpower = int64(GPU[i].GrpcGPUtotalpower)
+		grpcgpudata = append(grpcgpudata, gpudata)
 	}
+
 	// fmt.Println(userGPUMessage)
 	//fmt.Println(userGPUMessage)
 	return &userpb.InitMessage{
-		InitNode: userInitMessage.InitNode,
-		InitGPU:  userInitMessage.InitGPU,
+		InitNode: Nodedata,
+		InitGPU:  grpcgpudata,
 	}, nil
 }
 
@@ -435,8 +480,8 @@ func GetNvlinkInfo(node *grpcs.GrpcNode) {
 		nvlinkStatus[i].Lanes = make(map[string]int)
 		// nvlinkStatus[i].Lanes
 		for j := 0; j < MaxLanes; j++ {
-			P2PPciInfo, err := device.GetNvLinkRemotePciInfo(i)
-			if err == nvml.SUCCESS {
+			P2PPciInfo, err := device.GetNvLinkRemotePciInfo(j)
+			if err != nvml.SUCCESS {
 				break
 			}
 			tmparray := P2PPciInfo.BusId
@@ -455,10 +500,11 @@ func GetNvlinkInfo(node *grpcs.GrpcNode) {
 
 						// if P2PDevice.GetIndex()
 						types, _ := device.GetNvLinkRemoteDeviceType(j)
-						nvlinkStatus[i].Lanes[string(bytebus[:])] = 0
+						nvlinkStatus[i].Lanes[string(bytebus[:])] = 1
 						nvlinkStatus[i].P2PDeviceType = append(nvlinkStatus[i].P2PDeviceType, int(types))
 						P2PUUID, _ := P2PDevice.GetUUID()
 						nvlinkStatus[i].P2PUUID = append(nvlinkStatus[i].P2PUUID, P2PUUID)
+						nvlinkStatus[i].P2PBusID = append(nvlinkStatus[i].P2PBusID, string(bytebus[:]))
 					}
 				}
 				// if j == 0 {
@@ -473,9 +519,10 @@ func GetNvlinkInfo(node *grpcs.GrpcNode) {
 			var tmpnv grpcs.NvLink
 			tmpnv.GPU1UUID = nvlinkStatus[i].UUID
 			tmpnv.GPU2UUID = nvlinkStatus[i].P2PUUID[j]
-			tmpnv.CountLink = nvlinkStatus[i].Lanes[nvlinkStatus[i].P2PUUID[j]]
+			tmpnv.CountLink = nvlinkStatus[i].Lanes[nvlinkStatus[i].P2PBusID[j]]
 			node.NvLinkInfo = append(node.NvLinkInfo, tmpnv)
 		}
 	}
+	// fmt.Println(node.NvLinkInfo)
 
 }
