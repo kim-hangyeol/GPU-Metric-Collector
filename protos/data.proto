@@ -9,6 +9,7 @@ service User {
     rpc GetGPU(GetGPURequest) returns (GetGPUResponse);
     rpc GetWorkName(GetWorkNameRequest) returns (GetWorkNameResponse);
     rpc SendDegradation(DegradationMessage) returns (DegradationMessage);
+    rpc GetInitData(InitRequest) returns (InitMessage);
 }
 
 message NodeMessage {
@@ -22,8 +23,8 @@ message NodeMessage {
     int64 node_storage = 8;
     string gpu_uuid = 9;
     int64 max_gpu_memory = 10;
-    repeated int32 gpu1index = 11;
-    repeated int32 gpu2index = 12;
+    repeated string gpu1index = 11;
+    repeated string gpu2index = 12;
     repeated int32 lanecount = 13;
 }
 
@@ -69,4 +70,12 @@ message GetWorkNameResponse {
 
 message DegradationMessage{
     string DegradationData = 1;
+}
+
+message InitRequest {
+}
+
+message InitMessage{
+    NodeMessage InitNode = 1;
+    repeated GPUMessage InitGPU = 2;
 }

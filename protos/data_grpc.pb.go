@@ -22,6 +22,7 @@ type UserClient interface {
 	GetGPU(ctx context.Context, in *GetGPURequest, opts ...grpc.CallOption) (*GetGPUResponse, error)
 	GetWorkName(ctx context.Context, in *GetWorkNameRequest, opts ...grpc.CallOption) (*GetWorkNameResponse, error)
 	SendDegradation(ctx context.Context, in *DegradationMessage, opts ...grpc.CallOption) (*DegradationMessage, error)
+	GetInitData(ctx context.Context, in *InitRequest, opts ...grpc.CallOption) (*InitMessage, error)
 }
 
 type userClient struct {
@@ -68,6 +69,15 @@ func (c *userClient) SendDegradation(ctx context.Context, in *DegradationMessage
 	return out, nil
 }
 
+func (c *userClient) GetInitData(ctx context.Context, in *InitRequest, opts ...grpc.CallOption) (*InitMessage, error) {
+	out := new(InitMessage)
+	err := c.cc.Invoke(ctx, "/v1.user.User/GetInitData", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UserServer is the server API for User service.
 // All implementations must embed UnimplementedUserServer
 // for forward compatibility
@@ -76,6 +86,7 @@ type UserServer interface {
 	GetGPU(context.Context, *GetGPURequest) (*GetGPUResponse, error)
 	GetWorkName(context.Context, *GetWorkNameRequest) (*GetWorkNameResponse, error)
 	SendDegradation(context.Context, *DegradationMessage) (*DegradationMessage, error)
+	GetInitData(context.Context, *InitRequest) (*InitMessage, error)
 	mustEmbedUnimplementedUserServer()
 }
 
@@ -94,6 +105,9 @@ func (UnimplementedUserServer) GetWorkName(context.Context, *GetWorkNameRequest)
 }
 func (UnimplementedUserServer) SendDegradation(context.Context, *DegradationMessage) (*DegradationMessage, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendDegradation not implemented")
+}
+func (UnimplementedUserServer) GetInitData(context.Context, *InitRequest) (*InitMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetInitData not implemented")
 }
 func (UnimplementedUserServer) mustEmbedUnimplementedUserServer() {}
 
@@ -180,6 +194,24 @@ func _User_SendDegradation_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _User_GetInitData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InitRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).GetInitData(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/v1.user.User/GetInitData",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).GetInitData(ctx, req.(*InitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // User_ServiceDesc is the grpc.ServiceDesc for User service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -202,6 +234,10 @@ var User_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SendDegradation",
 			Handler:    _User_SendDegradation_Handler,
+		},
+		{
+			MethodName: "GetInitData",
+			Handler:    _User_GetInitData_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

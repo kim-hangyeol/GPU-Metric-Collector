@@ -94,6 +94,7 @@ func main() {
 		// fmt.Printf("  CudaCore : %d\n", cudacore)
 		// fmt.Printf("  MaxGPUClock : %d\n", maxclock)
 	}
+	GetNvlinkInfo(Node[0])
 	Node[0].NodeGPU = GPU
 	Node[0].GrpcNodeUUID = gpuuuid
 	Node[0].GrpcNodeCount = int(count)
@@ -338,6 +339,64 @@ func (s *UserServer) GetGPU(ctx context.Context, req *userpb.GetGPURequest) (*us
 	//fmt.Println(userGPUMessage)
 	return &userpb.GetGPUResponse{
 		GpuMessage: userGPUMessage,
+	}, nil
+}
+
+func (s *UserServer) GetInitData(ctx context.Context, req *userpb.InitRequest) (*userpb.InitMessage, error) {
+
+	time.Sleep(time.Second * time.Duration(*collect_time))
+	var userInitMessage *userpb.InitMessage
+	var maxgpumemory = int64(0)
+	for i := range gpuuuid {
+		if maxgpumemory < int64(GPU[i].GrpcGPUtotal) {
+			maxgpumemory = int64(GPU[i].GrpcGPUtotal)
+		}
+
+	}
+
+	userInitMessage.InitNode.NodeName = Node[0].GrpcNodeName
+	userInitMessage.InitNode.NodeTotalcpu = Node[0].GrpcNodetotalCPU
+	userInitMessage.InitNode.NodeCpu = Node[0].GrpcNodeCPU
+	userInitMessage.InitNode.GpuCount = int64(Node[0].GrpcNodeCount)
+	userInitMessage.InitNode.NodeTotalmemory = Node[0].GrpcNodeTotalMemory
+	userInitMessage.InitNode.NodeMemory = Node[0].GrpcNodeMemory
+	userInitMessage.InitNode.NodeTotalstorage = Node[0].GrpcNodeTotalStorage
+	userInitMessage.InitNode.NodeStorage = Node[0].GrpcNodeStorage
+	userInitMessage.InitNode.GpuUuid = strings.Join(Node[0].GrpcNodeUUID, " ")
+	userInitMessage.InitNode.MaxGpuMemory = maxgpumemory
+
+	for i := 0; i < len(Node[0].NvLinkInfo); i++ {
+		userInitMessage.InitNode.Gpu1Index = append(userInitMessage.InitNode.Gpu1Index, Node[0].NvLinkInfo[i].GPU1UUID)
+		userInitMessage.InitNode.Gpu2Index = append(userInitMessage.InitNode.Gpu2Index, Node[0].NvLinkInfo[i].GPU2UUID)
+		userInitMessage.InitNode.Lanecount = append(userInitMessage.InitNode.Lanecount, int32(Node[0].NvLinkInfo[i].CountLink))
+	}
+
+	// userInitMessage.InitNode.Gpu1Index = Node[0].nv
+
+	for i, j := range gpuuuid {
+		userInitMessage.InitGPU = append(userInitMessage.InitGPU, &userpb.GPUMessage{})
+		userInitMessage.InitGPU[i].GpuUuid = j
+		if GPU[i].GrpcGPUmpscount < 0 {
+			GPU[i].GrpcGPUmpscount = 0
+		}
+
+		userInitMessage.InitGPU[i].GpuUsed = uint64(GPU[i].GrpcGPUused)
+		userInitMessage.InitGPU[i].GpuName = GPU[i].GrpcGPUName
+		userInitMessage.InitGPU[i].GpuIndex = int64(GPU[i].GrpcGPUIndex)
+		userInitMessage.InitGPU[i].GpuTotal = uint64(GPU[i].GrpcGPUtotal)
+		userInitMessage.InitGPU[i].GpuFree = uint64(GPU[i].GrpcGPUfree)
+		userInitMessage.InitGPU[i].GpuTemp = int64(GPU[i].GrpcGPUtemp)
+		userInitMessage.InitGPU[i].GpuPower = int64(GPU[i].GrpcGPUpower)
+		userInitMessage.InitGPU[i].MpsCount = int64(GPU[i].GrpcGPUmpscount)
+		userInitMessage.InitGPU[i].GpuFlops = int64(GPU[i].GrpcGPUflops)
+		userInitMessage.InitGPU[i].GpuArch = int64(GPU[i].GrpcGPUarch)
+		userInitMessage.InitGPU[i].GpuTpower = int64(GPU[i].GrpcGPUtotalpower)
+	}
+	// fmt.Println(userGPUMessage)
+	//fmt.Println(userGPUMessage)
+	return &userpb.InitMessage{
+		InitNode: userInitMessage.InitNode,
+		InitGPU:  userInitMessage.InitGPU,
 	}, nil
 }
 
