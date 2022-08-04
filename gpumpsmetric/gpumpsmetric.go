@@ -97,7 +97,7 @@ func getgpuprocess(device nvml.Device, mps *processinfo) int {
 		for cgroupscanner.Scan() {
 			cgroup := cgroupscanner.Text()
 			cgroups := strings.Split(cgroup, "/")
-			fmt.Println(cgroups)
+			// fmt.Println(cgroups)
 			if cgroups[1] == "kubepods" {
 				if len(cgroups) > 3 {
 					mps.ContainerID = append(mps.ContainerID, cgroups[4])
@@ -217,7 +217,7 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 			}
 		} else {
 			if runpodlist[i].Annotations["UUID"] == UUID {
-				fmt.Printf("running pod name : %v\n", runpodlist[i].Name)
+				// fmt.Printf("running pod name : %v\n", runpodlist[i].Name)
 				gpumpsmap[podnum].UID = string(runpodlist[i].UID)
 				gpumpsmap[podnum].Container = runpodlist[i].Spec.Containers[0].Name
 				gpumpsmap[podnum].Pod = runpodlist[i].ObjectMeta.Name
@@ -393,6 +393,7 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 
 	for i := 0; i < podnum; i++ {
 		//fmt.Printf("MPS |%4v| : |%10vMiB| |%30v|  |%20v|\n", i-1, mps[i-1].MemoryUsed, gpumpsmap[i-1].Pod, gpumpsmap[i-1].Container)
+		fmt.Println(GPU_Metric.GPUPod[i].ProcessName)
 		bp, _ := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
 			Database:  "metric",
 			Precision: "s",

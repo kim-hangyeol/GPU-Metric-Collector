@@ -154,3 +154,12 @@ type SlurmJob struct {
 	Index     int
 	StartTime string
 }
+
+type NvlinkStatus struct {
+	UUID          string
+	BusID         string
+	Lanes         map[string]int
+	P2PUUID       []string
+	P2PDeviceType []int //0 GPU, 1 IBMNPU, 2 SWITCH, 255 = UNKNOWN
+
+}

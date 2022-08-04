@@ -300,7 +300,7 @@ func Gpumetric(c influxdb.Client, nodecpu int64, nodememory int64, nodename stri
 		//fmt.Println()
 		//fmt.Printf("|%7v|  |%13v|  |%7v| |%7v| |%7v| MiB |%15v| C |%5v| |%5v| W \n", i, *status.Utilization.GPU, *memory, *Memory.Global.Free, *Memory.Global.Used, *temperature, *power, *Power)
 	}
-	go analyzer.Analyzer(*Node)
+	go analyzer.Analyzer(*Node, c)
 
 	bp, _ := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
 		Database:  "metric",

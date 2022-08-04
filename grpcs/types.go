@@ -34,6 +34,7 @@ type GrpcNode struct {
 	TotalPodnum          int
 	GrpcNodeUUID         []string
 	NodeGPU              []*GrpcGPU
+	NvLinkInfo           []NvLink
 }
 
 type PodMetric struct {
@@ -47,4 +48,10 @@ type PodMetric struct {
 	PodNetworkRX int64
 	PodNetworkTX int64
 	PodStorage   int64
+}
+
+type NvLink struct {
+	GPU1UUID  string
+	GPU2UUID  string
+	CountLink int
 }

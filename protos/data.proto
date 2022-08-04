@@ -22,6 +22,9 @@ message NodeMessage {
     int64 node_storage = 8;
     string gpu_uuid = 9;
     int64 max_gpu_memory = 10;
+    repeated int32 gpu1index = 11;
+    repeated int32 gpu2index = 12;
+    repeated int32 lanecount = 13;
 }
 
 message GetNodeRequest {

@@ -41,6 +41,7 @@ import (
 )
 
 var collect_time = flag.Int("collecttime", 10, "Metric Collect Time")
+var MaxLanes = 16
 
 const portNumber = "9000"
 
@@ -353,4 +354,69 @@ func grpcrun() {
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %s", err)
 	}
+}
+
+func GetNvlinkInfo(node *grpcs.GrpcNode) {
+	count, err := nvml.DeviceGetCount()
+	if err != nvml.SUCCESS {
+		return
+	}
+	var nvlinkStatus []storage.NvlinkStatus
+	for i := 0; i < count; i++ {
+		nvlinkStatus = append(nvlinkStatus, storage.NvlinkStatus{})
+		device, _ := nvml.DeviceGetHandleByIndex(i)
+		pciinfo, _ := device.GetPciInfo()
+		tmparray := pciinfo.BusId
+		var bytebus [32]byte
+		for j := 0; j < 32; j++ {
+			bytebus[j] = byte(tmparray[i])
+		}
+		nvlinkStatus[i].BusID = string(bytebus[:])
+		nvlinkStatus[i].UUID, _ = device.GetUUID()
+		nvlinkStatus[i].Lanes = make(map[string]int)
+		// nvlinkStatus[i].Lanes
+		for j := 0; j < MaxLanes; j++ {
+			P2PPciInfo, err := device.GetNvLinkRemotePciInfo(i)
+			if err == nvml.SUCCESS {
+				break
+			}
+			tmparray := P2PPciInfo.BusId
+			var bytebus [32]byte
+			for k := 0; k < 32; k++ {
+				bytebus[k] = byte(tmparray[k])
+			}
+			val, exists := nvlinkStatus[i].Lanes[string(bytebus[:])]
+			if !exists {
+				P2PDevice, err := nvml.DeviceGetHandleByPciBusId(string(bytebus[:]))
+				if err != nvml.SUCCESS {
+					fmt.Println("error can get device handle")
+				} else {
+					P2PIndex, _ := P2PDevice.GetIndex()
+					if P2PIndex > j {
+
+						// if P2PDevice.GetIndex()
+						types, _ := device.GetNvLinkRemoteDeviceType(j)
+						nvlinkStatus[i].Lanes[string(bytebus[:])] = 0
+						nvlinkStatus[i].P2PDeviceType = append(nvlinkStatus[i].P2PDeviceType, int(types))
+						P2PUUID, _ := P2PDevice.GetUUID()
+						nvlinkStatus[i].P2PUUID = append(nvlinkStatus[i].P2PUUID, P2PUUID)
+					}
+				}
+				// if j == 0 {
+				// 	nvlinkStatus[i].Lanes = make(map[string]int)
+				// }
+
+			} else {
+				nvlinkStatus[i].Lanes[string(bytebus[:])] = val + 1
+			}
+		}
+		for j := 0; j < len(nvlinkStatus[i].P2PUUID); j++ {
+			var tmpnv grpcs.NvLink
+			tmpnv.GPU1UUID = nvlinkStatus[i].UUID
+			tmpnv.GPU2UUID = nvlinkStatus[i].P2PUUID[j]
+			tmpnv.CountLink = nvlinkStatus[i].Lanes[nvlinkStatus[i].P2PUUID[j]]
+			node.NvLinkInfo = append(node.NvLinkInfo, tmpnv)
+		}
+	}
+
 }

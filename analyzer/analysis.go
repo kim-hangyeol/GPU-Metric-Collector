@@ -41,7 +41,7 @@ var ConfidenceInterval = flag.Float64("ConfidenceInterval", 95, "Confidence Inte
 
 var confidencenum float64
 
-func Analyzer(Node_Metric grpcs.GrpcNode) error {
+func Analyzer(Node_Metric grpcs.GrpcNode, c client.Client) error {
 	flag.Parse()
 	if *ConfidenceInterval == 90 {
 		confidencenum = 1.645
@@ -67,7 +67,7 @@ func Analyzer(Node_Metric grpcs.GrpcNode) error {
 	FindDegradation = false
 	FindIncrease = false
 	// go debugfunc(&Node_Metric, &Degradation_Data)
-	NodeDegradation(&Node_Metric, &Degradation_Data)
+	NodeDegradation(&Node_Metric, &Degradation_Data, c)
 	if FindDegradation {
 		DegradationCount++
 	} else {
@@ -114,7 +114,7 @@ func GPUDegradation(c client.Client, GPU_Metric *grpcs.GrpcGPU, GPU_Count int, D
 		// fmt.Println(Degradation_GPU.Pod[i])
 		// fmt.Println(i)
 		// go PodDegradation(c, GPU_Metric.GPUPod[i], &wait_gpu, GPU_Metric.GrpcGPUUUID, Degradation_GPU.Pod[i])
-		go PodDegradation(c, GPU_Metric.GPUPod[i], GPU_Metric.GrpcGPUUUID, Degradation_GPU.Pod[i])
+		PodDegradation(c, GPU_Metric.GPUPod[i], GPU_Metric.GrpcGPUUUID, Degradation_GPU.Pod[i])
 		// fmt.Println(1222 + i)
 	}
 	// wait_gpu.Wait()
@@ -129,26 +129,27 @@ func GPUDegradation(c client.Client, GPU_Metric *grpcs.GrpcGPU, GPU_Count int, D
 	// }
 }
 
-func NodeDegradation(Node_Metric *grpcs.GrpcNode, Degradation_Data *Degradation) {
-	ip := "influxdb.gpu.svc.cluster.local"
-	//ip := "10.244.2.2"
-	port := "8086"
-	url := "http://" + ip + ":" + port
-	c, err := client.NewHTTPClient(client.HTTPConfig{
-		Addr: url,
-	})
-	if err != nil {
-		fmt.Println("Error creatring influx", err.Error())
-	}
+func NodeDegradation(Node_Metric *grpcs.GrpcNode, Degradation_Data *Degradation, c client.Client) {
+	// ip := "influxdb.gpu.svc.cluster.local"
+	// //ip := "10.244.2.2"
+	// port := "8086"
+	// url := "http://" + ip + ":" + port
+	// c, err := client.NewHTTPClient(client.HTTPConfig{
+	// 	Addr: url,
+	// })
+	// if err != nil {
+	// 	fmt.Println("Error creatring influx", err.Error())
+	// }
+	// defer c.Close()
 	// var wait_node sync.WaitGroup
 	// wait_node.Add(len(Node_Metric.NodeGPU))
 	for i := 0; i < len(Node_Metric.NodeGPU); i++ {
 		Degradation_Data.GPU = append(Degradation_Data.GPU, &DegradationGPU{})
-		go GPUDegradation(c, Node_Metric.NodeGPU[i], len(Node_Metric.NodeGPU), Degradation_Data.GPU[i])
+		GPUDegradation(c, Node_Metric.NodeGPU[i], len(Node_Metric.NodeGPU), Degradation_Data.GPU[i])
 		// defer wait.Done()
 	}
 	// wait_node.Wait()
-	c.Close()
+
 	// if NodeDegradationCount > 2 || NodeDegradationCount == len(Node_Metric.NodeGPU) {
 	ret := GetNodeMetric(c, Node_Metric, Degradation_Data)
 	if ret == 0 {
@@ -160,12 +161,16 @@ func NodeDegradation(Node_Metric *grpcs.GrpcNode, Degradation_Data *Degradation)
 
 func GetNodeMetric(c client.Client, Node_Metric *grpcs.GrpcNode, Degradation_Data *Degradation) int {
 	q := client.Query{
-		Command:  fmt.Sprintf("SELECT * FROM multimetric where NodeName='%s' order by time desc limit '%d'", Node_Metric.GrpcNodeName, *CountNumber),
+		Command:  fmt.Sprintf("SELECT * FROM multimetric where NodeName='%s' order by time desc limit %d", Node_Metric.GrpcNodeName, *CountNumber),
 		Database: "metric",
 	}
+	// fmt.Println(q.Command)
 	response, err := c.Query(q)
 	if err != nil || response.Error() != nil {
-		fmt.Println("InfluxDB error: ", err)
+		fmt.Println("InfluxDB error: ", err, response.Error())
+		return 2
+	}
+	if len(response.Results) == 0 {
 		return 2
 	}
 	if len(response.Results[0].Series[0].Values) < *CountNumber {
@@ -223,12 +228,15 @@ func GetNodeMetric(c client.Client, Node_Metric *grpcs.GrpcNode, Degradation_Dat
 
 func GetGPUMetrics(c client.Client, GPU_Metric *grpcs.GrpcGPU, Degradation_GPU *DegradationGPU) int {
 	q := client.Query{
-		Command:  fmt.Sprintf("select * from gpumetric where UUID='%s' order by time desc limit '%d'", GPU_Metric.GrpcGPUUUID, *CountNumber),
+		Command:  fmt.Sprintf("select * from gpumetric where UUID='%s' order by time desc limit %d", GPU_Metric.GrpcGPUUUID, *CountNumber),
 		Database: "metric",
 	}
 	response, err := c.Query(q)
 	if err != nil || response.Error() != nil {
-		fmt.Println("InfluxDB error: ", err)
+		fmt.Println("InfluxDB error: ", err, response.Error())
+		return 2
+	}
+	if len(response.Results) == 0 {
 		return 2
 	}
 	Degradation_GPU.GPUUUID = GPU_Metric.GrpcGPUUUID
@@ -295,12 +303,12 @@ func GetGPUMetrics(c client.Client, GPU_Metric *grpcs.GrpcGPU, Degradation_GPU *
 
 func GetPodMetric(c client.Client, Pod_Metric *grpcs.PodMetric, UUID string, Degradation_Pod *DegradationPod) int {
 	q := client.Query{
-		Command:  fmt.Sprintf("select * from gpumap where gpu_mps_pod = '%s' and gpu_mps_pid = %d and UUID = '%s and gpu_mps_cpu != 0 and gpu_mps_nodememory != 0' order by time desc limit '%d'", Pod_Metric.PodName, Pod_Metric.PodPid, UUID, *CountNumber),
+		Command:  fmt.Sprintf("select * from gpumap where gpu_mps_pod = '%s' and gpu_mps_pid = %d and UUID = '%s' and gpu_mps_cpu != 0 and gpu_mps_nodememory != 0 order by time desc limit %d", Pod_Metric.PodName, Pod_Metric.PodPid, UUID, *CountNumber),
 		Database: "metric",
 	}
 	response, err := c.Query(q)
 	if err != nil || response.Error() != nil {
-		fmt.Println("InfluxDB error: ", err)
+		fmt.Println("InfluxDB error: ", err, response.Error())
 		return 2
 		// return nil
 	}
@@ -308,9 +316,10 @@ func GetPodMetric(c client.Client, Pod_Metric *grpcs.PodMetric, UUID string, Deg
 	Degradation_Pod.PodUID = Pod_Metric.PodUid
 	// fmt.Println(111111111)
 	// fmt.Println(response)
-	if response == nil {
+	if len(response.Results) == 0 {
 		return 2
 	}
+
 	if len(response.Results[0].Series[0].Values) < *CountNumber {
 		//total result len is not bigger than 30
 		return 2
@@ -656,7 +665,7 @@ func GetPodPattern(c client.Client, curr *grpcs.PodMetric, UUID string) bool {
 	}
 	response, err := c.Query(q)
 	if err != nil || response.Error() != nil {
-		fmt.Println("InfluxDB error: ", err)
+		fmt.Println("InfluxDB error: ", err, response.Error())
 		return false
 		// return nil
 	}
