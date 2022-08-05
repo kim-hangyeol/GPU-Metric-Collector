@@ -317,7 +317,10 @@ func GetPodMetric(c client.Client, Pod_Metric *grpcs.PodMetric, UUID string, Deg
 	Degradation_Pod.PodUID = Pod_Metric.PodUid
 	// fmt.Println(111111111)
 	// fmt.Println(response)
-	if len(response.Results) == 0 || len(response.Results[0].Series) == 0 {
+	if len(response.Results) == 0 {
+		return 2
+	}
+	if len(response.Results[0].Series) == 0 {
 		return 2
 	}
 
@@ -678,6 +681,7 @@ func NodeThreshold(aver NodeMetric, curr *grpcs.GrpcNode, c client.Client) bool 
 }
 
 func GetPodPattern(c client.Client, curr *grpcs.PodMetric, UUID string) bool {
+	//전체 추세 확인
 	q := client.Query{
 		Command:  fmt.Sprintf("select * from gpumap where gpu_mps_pod = '%s' and gpu_mps_pid = %d and UUID = '%s' order by time desc ", curr.PodName, curr.PodPid, UUID),
 		Database: "metric",
@@ -719,9 +723,24 @@ func GetPattern(c client.Client) bool {
 	return false
 }
 
-func GetTrands(c client.Client) bool {
+func GetTrands(data []float64, average float64) bool {
 	//최근 추세 확인
-	return false
+	var denominator float64
+	var numerator float64
+	var datalenaver float64
+	for i := 0; i < len(data); i++ {
+		datalenaver += float64(i)
+	}
+	datalenaver /= float64(len(data))
+	for i := 0; i < len(data); i++ {
+		numerator += (data[len(data)-i-1] - average) * (float64(i) - datalenaver)
+		denominator += math.Pow(float64(i)-datalenaver, 2)
+	}
+	if numerator/denominator > 0 {
+		return true
+	} else {
+		return false
+	}
 }
 
 func GPUTemperatureAnalysis(GPU_Metric *grpcs.GrpcGPU) int {
