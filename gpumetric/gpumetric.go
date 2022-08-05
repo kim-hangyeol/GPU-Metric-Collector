@@ -240,7 +240,7 @@ func Gpumetric(c influxdb.Client, nodecpu int64, nodememory int64, nodename stri
 		GPU[i].GrpcGPUName = dname
 		GPU[i].GrpcGPUIndex = i
 		GPU[i].GrpcGPUtotal = int64(memory.Total)
-		GPU[i].GrpcGPUtemp = int(temperature)
+		GPU[i].GrpcGPUtemp.Current = int(temperature)
 		GPU[i].GrpcGPUpower = int(Power)
 		GPU[i].GPURX = int(PCIRX)
 		GPU[i].GPUTX = int(PCITX)

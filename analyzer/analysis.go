@@ -119,6 +119,7 @@ func GPUDegradation(c client.Client, GPU_Metric *grpcs.GrpcGPU, GPU_Count int, D
 	}
 	// wait_gpu.Wait()
 	// if GPUDegradationCount > 2 || GPUDegradationCount == len(GPU_Metric.GPUPod) {
+	GPUTemperatureAnalysis(GPU_Metric)
 	ret := GetGPUMetrics(c, GPU_Metric, Degradation_GPU)
 	if ret == 0 {
 		mutex.Lock()
@@ -316,7 +317,7 @@ func GetPodMetric(c client.Client, Pod_Metric *grpcs.PodMetric, UUID string, Deg
 	Degradation_Pod.PodUID = Pod_Metric.PodUid
 	// fmt.Println(111111111)
 	// fmt.Println(response)
-	if len(response.Results) == 0 {
+	if len(response.Results) == 0 || len(response.Results[0].Series) == 0 {
 		return 2
 	}
 
@@ -416,7 +417,7 @@ func FindGPUDegradation(curr *grpcs.GrpcGPU, prev GPUMetric, Degradation_GPU *De
 	} else if curr.GrpcGPUpower < int(prev.AverPower) + int(prev.AverPower) / *DegradationPersent {
 		FindDegradation = true
 		return 0
-	} else if curr.GrpcGPUtemp < int(prev.AverTemp) + int(prev.AverTemp) / *DegradationPersent {
+	} else if curr.GrpcGPUtemp.Current < int(prev.AverTemp) + int(prev.AverTemp) / *DegradationPersent {
 		FindDegradation = true
 		return 0
 	} else if curr.GrpcGPUutil < int(prev.AverUtil) + int(prev.AverUtil) / *DegradationPersent {
@@ -488,7 +489,7 @@ func FindGPUInCrease(curr *grpcs.GrpcGPU, prev GPUMetric, Degradation_GPU *Degra
 	} else if curr.GrpcGPUpower > int(prev.AverPower) + int(prev.AverPower) / *DegradationPersent {
 		FindIncrease = true
 		return 0
-	} else if curr.GrpcGPUtemp > int(prev.AverTemp) + int(prev.AverTemp) / *DegradationPersent {
+	} else if curr.GrpcGPUtemp.Current > int(prev.AverTemp) + int(prev.AverTemp) / *DegradationPersent {
 		FindIncrease = true
 		return 0
 	} else if curr.GrpcGPUutil > int(prev.AverUtil) + int(prev.AverUtil) / *DegradationPersent {
@@ -572,29 +573,47 @@ func SendDegradationData(degradation_message string) error {
 func PodThreshold(aver PodMetric, curr *grpcs.PodMetric, c client.Client, UUID string) bool {
 
 	if aver.AverCPU-confidencenum*aver.StDevCPU/math.Sqrt(float64(*CountNumber)) < curr.PodCPU {
+		GetTrands(c)
 		if GetPodPattern(c, curr, UUID) {
 			return false
 		}
+	} else if aver.AverCPU+confidencenum*aver.StDevCPU/math.Sqrt(float64(*CountNumber)) > curr.PodCPU {
+		GetTrands(c)
 	} else if float64(aver.AverGPUMemory)-confidencenum*aver.StDevGPUMemory/math.Sqrt(float64(*CountNumber)) < float64(curr.PodGPUMemory) {
+		GetTrands(c)
 		if GetPodPattern(c, curr, UUID) {
 			return false
 		}
+	} else if float64(aver.AverGPUMemory)+confidencenum*aver.StDevGPUMemory/math.Sqrt(float64(*CountNumber)) > float64(curr.PodGPUMemory) {
+		GetTrands(c)
 	} else if float64(aver.AverMemory)-confidencenum*aver.StDevMemory/math.Sqrt(float64(*CountNumber)) < float64(curr.PodMemory) {
+		GetTrands(c)
 		if GetPodPattern(c, curr, UUID) {
 			return false
 		}
+	} else if float64(aver.AverMemory)+confidencenum*aver.StDevMemory/math.Sqrt(float64(*CountNumber)) > float64(curr.PodMemory) {
+		GetTrands(c)
 	} else if float64(aver.AverNetworkRx)-confidencenum*aver.StDevNetworkRx/math.Sqrt(float64(*CountNumber)) < float64(curr.PodNetworkRX) {
+		GetTrands(c)
 		if GetPodPattern(c, curr, UUID) {
 			return false
 		}
+	} else if float64(aver.AverNetworkRx)+confidencenum*aver.StDevNetworkRx/math.Sqrt(float64(*CountNumber)) > float64(curr.PodNetworkRX) {
+		GetTrands(c)
 	} else if float64(aver.AverNetworkTx)-confidencenum*aver.StDevNetworkTx/math.Sqrt(float64(*CountNumber)) < float64(curr.PodNetworkTX) {
+		GetTrands(c)
 		if GetPodPattern(c, curr, UUID) {
 			return false
 		}
+	} else if float64(aver.AverNetworkTx)+confidencenum*aver.StDevNetworkTx/math.Sqrt(float64(*CountNumber)) > float64(curr.PodNetworkTX) {
+		GetTrands(c)
 	} else if float64(aver.AverStorage)-confidencenum*aver.StDevStorage/math.Sqrt(float64(*CountNumber)) < float64(curr.PodStorage) {
+		GetTrands(c)
 		if GetPodPattern(c, curr, UUID) {
 			return false
 		}
+	} else if float64(aver.AverStorage)+confidencenum*aver.StDevStorage/math.Sqrt(float64(*CountNumber)) > float64(curr.PodStorage) {
+		GetTrands(c)
 	}
 	return true
 }
@@ -620,7 +639,7 @@ func GPUThreshold(aver GPUMetric, curr *grpcs.GrpcGPU, c client.Client) bool {
 		if GetPattern(c) {
 			return false
 		}
-	} else if int64(aver.AverTemp)*int64(aver.StDevTemp)/int64(math.Sqrt(float64(*CountNumber))) < int64(curr.GrpcGPUtemp) {
+	} else if int64(aver.AverTemp)*int64(aver.StDevTemp)/int64(math.Sqrt(float64(*CountNumber))) < int64(curr.GrpcGPUtemp.Current) {
 		if GetPattern(c) {
 			return false
 		}
@@ -698,4 +717,19 @@ func GetPodPattern(c client.Client, curr *grpcs.PodMetric, UUID string) bool {
 
 func GetPattern(c client.Client) bool {
 	return false
+}
+
+func GetTrands(c client.Client) bool {
+	//최근 추세 확인
+	return false
+}
+
+func GPUTemperatureAnalysis(GPU_Metric *grpcs.GrpcGPU) int {
+	if GPU_Metric.GrpcGPUtemp.Current < GPU_Metric.GrpcGPUtemp.MaxOperating {
+		return 0 //정상
+	} else if GPU_Metric.GrpcGPUtemp.Current >= GPU_Metric.GrpcGPUtemp.MaxOperating && GPU_Metric.GrpcGPUtemp.Current < GPU_Metric.GrpcGPUtemp.Threshold {
+		return 1 //온도 높음
+	} else {
+		return 2 //온도 매우 높음
+	}
 }

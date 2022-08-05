@@ -98,10 +98,18 @@ func getgpuprocess(device nvml.Device, mps *processinfo) int {
 			cgroup := cgroupscanner.Text()
 			cgroups := strings.Split(cgroup, "/")
 			// fmt.Println(cgroups)
-			if cgroups[1] == "kubepods" {
+			if cgroups[1] == "kubepods" || cgroups[1] == "kubepods.slice" {
 				if len(cgroups) > 3 {
-					mps.ContainerID = append(mps.ContainerID, cgroups[4])
-					mpscount++
+					tmpslice := strings.Split(cgroups[4], "-")
+					if len(tmpslice) > 1 {
+						tmpslice1 := strings.Split(tmpslice[1], ".")
+						mps.ContainerID = append(mps.ContainerID, tmpslice1[0])
+						mpscount++
+
+					} else {
+						mps.ContainerID = append(mps.ContainerID, cgroups[4])
+						mpscount++
+					}
 					break
 				} else {
 					mps.ContainerID = append(mps.ContainerID, "")
@@ -481,6 +489,10 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 		// 		fmt.Println("Error:", err.Error())
 		// 	}
 		// }
+	}
+	a, _ := device.GetAccountingPids()
+	for i := 0; i < len(a); i++ {
+		fmt.Println(device.GetAccountingStats(uint32(a[i])))
 	}
 	return podnum
 }

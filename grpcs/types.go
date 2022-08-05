@@ -7,7 +7,7 @@ type GrpcGPU struct {
 	GrpcGPUName       string
 	GrpcGPUIndex      int
 	GrpcGPUtotal      int64
-	GrpcGPUtemp       int
+	GrpcGPUtemp       GPUTemperature
 	GrpcGPUpower      int
 	GrpcGPUmpscount   int
 	GrpcGPUtotalpower int
@@ -54,4 +54,11 @@ type NvLink struct {
 	GPU1UUID  string
 	GPU2UUID  string
 	CountLink int
+}
+
+type GPUTemperature struct {
+	Current      int //현재 온도
+	Threshold    int //성능 저하 온도
+	Shutdown     int //강제 종료 온도
+	MaxOperating int //?
 }

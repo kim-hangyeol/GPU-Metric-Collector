@@ -92,6 +92,12 @@ func main() {
 
 		GPU[i].GrpcGPUflops = int(gpuflops)
 		GPU[i].GrpcGPUarch = int(gpuarch)
+		gputemp, _ := device.GetTemperatureThreshold(3)
+		GPU[i].GrpcGPUtemp.MaxOperating = int(gputemp)
+		gputemp, _ = device.GetTemperatureThreshold(0)
+		GPU[i].GrpcGPUtemp.Shutdown = int(gputemp)
+		gputemp, _ = device.GetTemperatureThreshold(1)
+		GPU[i].GrpcGPUtemp.Threshold = int(gputemp)
 		// fmt.Printf("GPU %d FLOPS : %d\n", i, gpuflops)
 		// fmt.Printf("  CudaCore : %d\n", cudacore)
 		// fmt.Printf("  MaxGPUClock : %d\n", maxclock)
@@ -331,7 +337,7 @@ func (s *UserServer) GetGPU(ctx context.Context, req *userpb.GetGPURequest) (*us
 			// GpuIndex:  int64(GPU[i].GrpcGPUIndex),
 			// GpuTotal:  uint64(GPU[i].GrpcGPUtotal),
 			GpuFree:  uint64(GPU[i].GrpcGPUfree),
-			GpuTemp:  int64(GPU[i].GrpcGPUtemp),
+			GpuTemp:  int64(GPU[i].GrpcGPUtemp.Current),
 			GpuPower: int64(GPU[i].GrpcGPUpower),
 			MpsCount: int64(GPU[i].GrpcGPUmpscount),
 			GpuUtil:  int64(GPU[i].GrpcGPUutil),
@@ -415,7 +421,7 @@ func (s *UserServer) GetInitData(ctx context.Context, req *userpb.InitRequest) (
 			GpuIndex:  int64(GPU[i].GrpcGPUIndex),
 			GpuTotal:  uint64(GPU[i].GrpcGPUtotal),
 			GpuFree:   uint64(GPU[i].GrpcGPUfree),
-			GpuTemp:   int64(GPU[i].GrpcGPUtemp),
+			GpuTemp:   int64(GPU[i].GrpcGPUtemp.Current),
 			GpuPower:  int64(GPU[i].GrpcGPUpower),
 			MpsCount:  int64(GPU[i].GrpcGPUmpscount),
 			GpuUtil:   int64(GPU[i].GrpcGPUutil),

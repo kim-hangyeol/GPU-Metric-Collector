@@ -5109,3 +5109,79 @@ users:
   user:
     client-certificate-data: REDACTED
     client-key-data: REDACTED
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: DATA+OMITTED
+    server: https://10.0.5.66:6443
+  name: gpu1
+contexts:
+- context:
+    cluster: gpu1
+    user: kubernetes-admin11
+  name: gpu1
+current-context: gpu1
+kind: Config
+preferences: {}
+users:
+- name: kubernetes-admin11
+  user:
+    client-certificate-data: REDACTED
+    client-key-data: REDACTED
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: DATA+OMITTED
+    server: https://10.0.5.66:6443
+  name: gpu1
+contexts:
+- context:
+    cluster: gpu1
+    user: kubernetes-admin11
+  name: gpu1
+current-context: gpu1
+kind: Config
+preferences: {}
+users:
+- name: kubernetes-admin11
+  user:
+    client-certificate-data: REDACTED
+    client-key-data: REDACTED
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: DATA+OMITTED
+    server: https://10.0.5.66:6443
+  name: gpu1
+contexts:
+- context:
+    cluster: gpu1
+    user: kubernetes-admin11
+  name: gpu1
+current-context: gpu1
+kind: Config
+preferences: {}
+users:
+- name: kubernetes-admin11
+  user:
+    client-certificate-data: REDACTED
+    client-key-data: REDACTED
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: DATA+OMITTED
+    server: https://10.0.5.66:6443
+  name: gpu1
+contexts:
+- context:
+    cluster: gpu1
+    user: kubernetes-admin11
+  name: gpu1
+current-context: gpu1
+kind: Config
+preferences: {}
+users:
+- name: kubernetes-admin11
+  user:
+    client-certificate-data: REDACTED
+    client-key-data: REDACTED
