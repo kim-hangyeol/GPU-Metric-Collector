@@ -313,7 +313,7 @@ func GetPodMetric(c client.Client, Pod_Metric *grpcs.PodMetric, UUID string, Deg
 		return 2
 		// return nil
 	}
-	Aver_Metric := PodMetric{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	Aver_Metric := PodMetric{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, nil, nil, nil, nil, nil, nil}
 	Degradation_Pod.PodUID = Pod_Metric.PodUid
 	// fmt.Println(111111111)
 	// fmt.Println(response)
@@ -338,6 +338,13 @@ func GetPodMetric(c client.Client, Pod_Metric *grpcs.PodMetric, UUID string, Deg
 		AverNetworkTx, _ := strconv.ParseInt(fmt.Sprintf("%s", myPodMetric[5]), 10, 64)
 		AverMemory, _ := strconv.ParseInt(fmt.Sprintf("%s", myPodMetric[6]), 10, 64)
 		AverStorage, _ := strconv.ParseInt(fmt.Sprintf("%s", myPodMetric[10]), 10, 64)
+
+		Aver_Metric.CPUList = append(Aver_Metric.CPUList, AverCPU)
+		Aver_Metric.GPUMemoryList = append(Aver_Metric.GPUMemoryList, float64(AverGPUMemory))
+		Aver_Metric.RXList = append(Aver_Metric.RXList, float64(AverNetworkRx))
+		Aver_Metric.TXList = append(Aver_Metric.TXList, float64(AverNetworkTx))
+		Aver_Metric.StorageList = append(Aver_Metric.StorageList, float64(AverStorage))
+		Aver_Metric.MemoryList = append(Aver_Metric.MemoryList, float64(AverMemory))
 
 		Aver_Metric.AverCPU = AverCPU + Aver_Metric.AverCPU
 		Aver_Metric.AverGPUMemory = AverGPUMemory + Aver_Metric.AverGPUMemory
@@ -576,47 +583,47 @@ func SendDegradationData(degradation_message string) error {
 func PodThreshold(aver PodMetric, curr *grpcs.PodMetric, c client.Client, UUID string) bool {
 
 	if aver.AverCPU-confidencenum*aver.StDevCPU/math.Sqrt(float64(*CountNumber)) < curr.PodCPU {
-		GetTrands(c)
+		GetTrands(aver.CPUList, aver.AverCPU)
 		if GetPodPattern(c, curr, UUID) {
 			return false
 		}
 	} else if aver.AverCPU+confidencenum*aver.StDevCPU/math.Sqrt(float64(*CountNumber)) > curr.PodCPU {
-		GetTrands(c)
+		GetTrands(aver.CPUList, aver.AverCPU)
 	} else if float64(aver.AverGPUMemory)-confidencenum*aver.StDevGPUMemory/math.Sqrt(float64(*CountNumber)) < float64(curr.PodGPUMemory) {
-		GetTrands(c)
+		GetTrands(aver.GPUMemoryList, float64(aver.AverGPUMemory))
 		if GetPodPattern(c, curr, UUID) {
 			return false
 		}
 	} else if float64(aver.AverGPUMemory)+confidencenum*aver.StDevGPUMemory/math.Sqrt(float64(*CountNumber)) > float64(curr.PodGPUMemory) {
-		GetTrands(c)
+		GetTrands(aver.GPUMemoryList, float64(aver.AverGPUMemory))
 	} else if float64(aver.AverMemory)-confidencenum*aver.StDevMemory/math.Sqrt(float64(*CountNumber)) < float64(curr.PodMemory) {
-		GetTrands(c)
+		GetTrands(aver.MemoryList, float64(aver.AverMemory))
 		if GetPodPattern(c, curr, UUID) {
 			return false
 		}
 	} else if float64(aver.AverMemory)+confidencenum*aver.StDevMemory/math.Sqrt(float64(*CountNumber)) > float64(curr.PodMemory) {
-		GetTrands(c)
+		GetTrands(aver.MemoryList, float64(aver.AverMemory))
 	} else if float64(aver.AverNetworkRx)-confidencenum*aver.StDevNetworkRx/math.Sqrt(float64(*CountNumber)) < float64(curr.PodNetworkRX) {
-		GetTrands(c)
+		GetTrands(aver.RXList, float64(aver.AverNetworkRx))
 		if GetPodPattern(c, curr, UUID) {
 			return false
 		}
 	} else if float64(aver.AverNetworkRx)+confidencenum*aver.StDevNetworkRx/math.Sqrt(float64(*CountNumber)) > float64(curr.PodNetworkRX) {
-		GetTrands(c)
+		GetTrands(aver.RXList, float64(aver.AverNetworkRx))
 	} else if float64(aver.AverNetworkTx)-confidencenum*aver.StDevNetworkTx/math.Sqrt(float64(*CountNumber)) < float64(curr.PodNetworkTX) {
-		GetTrands(c)
+		GetTrands(aver.TXList, float64(aver.AverNetworkTx))
 		if GetPodPattern(c, curr, UUID) {
 			return false
 		}
 	} else if float64(aver.AverNetworkTx)+confidencenum*aver.StDevNetworkTx/math.Sqrt(float64(*CountNumber)) > float64(curr.PodNetworkTX) {
-		GetTrands(c)
+		GetTrands(aver.TXList, float64(aver.AverNetworkTx))
 	} else if float64(aver.AverStorage)-confidencenum*aver.StDevStorage/math.Sqrt(float64(*CountNumber)) < float64(curr.PodStorage) {
-		GetTrands(c)
+		GetTrands(aver.StorageList, float64(aver.AverStorage))
 		if GetPodPattern(c, curr, UUID) {
 			return false
 		}
 	} else if float64(aver.AverStorage)+confidencenum*aver.StDevStorage/math.Sqrt(float64(*CountNumber)) > float64(curr.PodStorage) {
-		GetTrands(c)
+		GetTrands(aver.StorageList, float64(aver.AverStorage))
 	}
 	return true
 }
@@ -694,7 +701,7 @@ func GetPodPattern(c client.Client, curr *grpcs.PodMetric, UUID string) bool {
 	}
 	var regressiondata Regression
 	r := new(regression.Regression)
-	r.SetObserved("Dgradation Metric")
+	r.SetObserved("Degradation Metric")
 	r.SetVar(0, "var1")
 	r.SetVar(1, "var2")
 	r.SetVar(2, "var3")

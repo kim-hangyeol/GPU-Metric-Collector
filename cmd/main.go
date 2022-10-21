@@ -132,6 +132,7 @@ func main() {
 	c.Query(makedatabase)
 	defer c.Close()
 	go grpcrun()
+	go Print_Metric()
 	// go analyzer()
 	//fmt.Printf("nodename: %v\n", name)
 	//cpu, err := exec.Command("grep", "-c", "processor", "/proc/cpuinfo").Output()
@@ -181,6 +182,28 @@ func main() {
 		// fmt.Println(*collect_time)
 	}
 
+}
+
+func Print_Metric() {
+	for {
+		time.Sleep(15 * time.Second)
+		// var GPUMetricLog []string
+		// var tmpstring string
+		fmt.Println("<--------- Node#1 --------->")
+		fmt.Println("1) Node Name : ", Node[0].GrpcNodeName)
+		fmt.Println("[Metric #1] NVLink Pair", Node[0].NvLinkInfo)
+		for i := 0; i < len(GPU); i++ {
+			fmt.Println("2-", GPU[i].GrpcGPUIndex, ") GPU Name : ", GPU[i].GrpcGPUName)
+			fmt.Println("[Metric #2] GPU Utilization : ", GPU[i].GrpcGPUutil)
+			fmt.Println("[Metric #3] GPU Memory(Byte) : ", GPU[i].GrpcGPUtotal, "/", GPU[i].GrpcGPUfree, "/", GPU[i].GrpcGPUused, " (Total/Free/Used)")
+			fmt.Println("[Metric #4] GPU Temperature(c) : ", GPU[i].GrpcGPUtemp.Current)
+			fmt.Println("[Metric #5] GPU Power(mW) : ", GPU[i].GrpcGPUpower)
+			fmt.Println("[Metric #6] GPU FLOPS : ", GPU[i].GrpcGPUflops)
+			fmt.Println("[Metric #7] GPU Pod Count : ", GPU[i].GrpcGPUmpscount)
+			fmt.Println("[Metric #8] GPU Architecture : ", GPU[i].GrpcGPUarch)
+			// tmpstring += GPU[i].
+		}
+	}
 }
 
 // func GetWorkData() string {

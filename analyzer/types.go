@@ -43,6 +43,12 @@ type PodMetric struct {
 	StDevStorage   float64
 	StDevNetworkRx float64
 	StDevNetworkTx float64
+	MemoryList     []float64
+	GPUMemoryList  []float64
+	CPUList        []float64
+	StorageList    []float64
+	RXList         []float64
+	TXList         []float64
 }
 
 type Degradation struct {

@@ -18,7 +18,7 @@ spec:
       restartPolicy: Always
       containers:
         - name: gpu-metric-collector
-          image: ketidevit/kmc-metric-test:v166
+          image: ketidevit2/kmc-metric-test:v274
           args:
           - --collecttime=15
           volumeMounts:
