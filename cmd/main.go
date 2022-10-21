@@ -115,7 +115,7 @@ func main() {
 		Addr: url,
 	})
 	if err != nil {
-		fmt.Println("Error creatring influx", err.Error())
+		fmt.Println("Error creating influx", err.Error())
 	}
 	dropdatabase := influxdb.Query{
 		Command:  "drop database metric",
