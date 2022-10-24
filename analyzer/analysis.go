@@ -119,7 +119,12 @@ func GPUDegradation(c client.Client, GPU_Metric *grpcs.GrpcGPU, GPU_Count int, D
 	}
 	// wait_gpu.Wait()
 	// if GPUDegradationCount > 2 || GPUDegradationCount == len(GPU_Metric.GPUPod) {
-	GPUTemperatureAnalysis(GPU_Metric)
+	gputemp := GPUTemperatureAnalysis(GPU_Metric)
+	if gputemp == 1 {
+		fmt.Println("GPU Temperature is High")
+	} else if gputemp == 2 {
+		fmt.Println("GPU Temperature Error")
+	}
 	ret := GetGPUMetrics(c, GPU_Metric, Degradation_GPU)
 	if ret == 0 {
 		mutex.Lock()
