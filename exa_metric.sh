@@ -10,4 +10,4 @@ sleep 1
 echo "--------------------:: KETI GPU Metric Collector Log ::--------------------"
 echo "---------------------------------------------------------------------------"
 sleep 1
-kubectl logs $PODNAME -n gpu -f
+kubectl logs $PODNAME -n gpu -f --tail=19
