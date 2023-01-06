@@ -119,6 +119,7 @@ func AddToDeployCustomMetricServer(data *storage.Collection, token string, host 
 			client := &http.Client{Transport: tr}
 
 			if check_exist > 0 {
+				//안쓰는 부분인데 지우면 에러나서 남겨둠
 				namespace := replicaset.Namespace
 				name := replicaset.Name[:strings.LastIndexAny(replicaset.Name, "-")]
 				fmt.Println("[", name, "/", namespace, "]")
@@ -237,6 +238,7 @@ func AddToPodCustomMetricServer(data *storage.Collection, token string, host str
 }
 
 func PostData(host string, token string, client *http.Client, resourceNamespace string, resourceName string, resourceMetricName string, resourceMetricValue string) {
+	//안씀
 	fmt.Println("PostData Called")
 	apiserver := host
 	baselink := "/api/v1/namespaces/custom-metrics/services/custom-metrics-apiserver:http/proxy/"

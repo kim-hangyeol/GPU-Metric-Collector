@@ -42,6 +42,7 @@ type Runningpod struct {
 	Checksum int `json:"Checksum"`
 }
 
+// gpu파드+쿠베파드 매핑 (temp)
 type GpuMpsMap struct {
 	UUID string
 	// useMemory int
@@ -62,6 +63,7 @@ type processinfo struct {
 }
 
 func getpodlist() (*v1.PodList, error) {
+	//노드의 파드 리스트 가져오는것
 	host_config, _ := rest.InClusterConfig()
 	host_kubeClient := kubernetes.NewForConfigOrDie(host_config)
 	MY_NODENAME := os.Getenv("MY_NODE_NAME")
@@ -84,6 +86,7 @@ func getpodlist() (*v1.PodList, error) {
 }
 
 func getgpuprocess(device nvml.Device, mps *processinfo) int {
+	//gpu에서 동작중인 프로세스 가져오는 것
 	mpscount := 0
 	mps.nvmlprocess, _ = device.GetMPSComputeRunningProcesses()
 	mps.Name = nil
@@ -128,10 +131,10 @@ func getgpuprocess(device nvml.Device, mps *processinfo) int {
 
 // var firstnum = 0
 
-func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storage.Collection, podmap []*storage.PodGPU, GPU_Metric *grpcs.GrpcGPU) int {
-
-	var gpumpsmap [48]GpuMpsMap
-	var mps processinfo
+func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storage.Collection, podmap *[]storage.PodGPU, GPU_Metric *grpcs.GrpcGPU) int {
+	//메인 동작
+	var gpumpsmap [48]GpuMpsMap //최대 48개
+	var mps processinfo         //gpu 프로세스 정보
 
 	//var pidtable []uint
 	//var mapping [10]int
@@ -153,12 +156,12 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 		podnum := 0
 		mpscount := getgpuprocess(device, &mps)
 		// fmt.Println(mps)
-		podlist, err := getpodlist()
+		podlist, err := getpodlist() //해당노드/네임스페이스
 		if err != nil {
 			log.Fatalln(err)
 		}
 		// fmt.Println(podlist)
-		for i := 0; i < len(podlist.Items); i++ { //container creating 때문에 갯수가 안맞는듯?
+		for i := 0; i < len(podlist.Items); i++ { //container creating 때문에 갯수가 안맞는듯?->그래서 20번 반복
 			annotation := podlist.Items[i].Annotations["UUID"]
 			annotationUUID := strings.Split(annotation, ",")
 			if len(annotationUUID) > 1 {
@@ -211,7 +214,7 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 		annotationUUID := strings.Split(annotation, ",")
 		// fmt.Println(annotationUUID)
 		// fmt.Println(runpodlist[i].Annotations["UUID"], " ", UUID)
-		if len(annotationUUID) > 1 {
+		if len(annotationUUID) > 1 { //UUID 안봐도 될듯??
 			for j := 0; j < len(annotationUUID); j++ {
 				if annotationUUID[j] == UUID {
 					gpumpsmap[podnum].UID = string(runpodlist[i].UID)
@@ -236,6 +239,8 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 			}
 		}
 	}
+
+	//슬럼쪽 코드
 	// fmt.Println(podnum)
 	// for i := 0; i < podnum; i++ {
 	// 	for j := i + 1; j < podnum; j++ {
@@ -280,11 +285,16 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 	//fmt.Println(gpumpsmap)
 	//var isnewpod = 1
 	//var newpodcount = 0
+
+	//GPU 프로세스랑 Container랑 매핑하는 부분
 	for i := 0; i < podnum; i++ {
 		for k := 0; k < len(mps.ContainerID); k++ {
 			if mps.ContainerID[k] == "" {
 				continue
 			}
+			//컨테이너 아이디 확인한걸로 로그 파일 접근 가능
+			//로깅하는 코드는 5.66:/root/workspace/kmc/logmanager에 존재
+			//코드 따로 짠 이유는 메콜은 수집주기가 너무 길어서임
 			containerid := strings.Split(gpumpsmap[i].ContainerID, "/")[2]
 			if mps.ContainerID[k] == containerid {
 				GPU_Metric.GPUPod = append(GPU_Metric.GPUPod, &grpcs.PodMetric{})
@@ -293,6 +303,7 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 				GPU_Metric.GPUPod[i].PodName = gpumpsmap[i].Pod
 				GPU_Metric.GPUPod[i].ProcessName = mps.Name[k]
 				GPU_Metric.GPUPod[i].PodUid = gpumpsmap[i].UID
+				GPU_Metric.GPUPod[i].ContainerID = containerid
 				for j := 0; j < len(data.Metricsbatchs[0].Pods); j++ {
 					if GPU_Metric.GPUPod[i].PodName == data.Metricsbatchs[0].Pods[j].Name {
 						GPU_Metric.GPUPod[i].PodCPU = float64(data.Metricsbatchs[0].Pods[j].CPUUsageNanoCores.MilliValue())
@@ -308,6 +319,39 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 
 		// GPU_Metric.GPUPod[i].PodMemory =
 	}
+
+	for i := 0; i < len(*podmap); i++ {
+		(*podmap)[i].RunningCheck = false
+	}
+
+	for i := 0; i < len(GPU_Metric.GPUPod); i++ {
+		newflag := true
+		for j := 0; j < len(*podmap); j++ {
+			if GPU_Metric.GPUPod[i].ContainerID == (*podmap)[j].ContainerID {
+				(*podmap)[j].RunningCheck = true //아직동작
+				newflag = false                  //원래있던거
+				break
+			}
+		}
+		if newflag {
+			GPU_Metric.GPUAssingment = GPU_Metric.GPUAssingment + 1
+			var tmppod storage.PodGPU
+			tmppod.ContainerID = GPU_Metric.GPUPod[i].ContainerID
+			(*podmap) = append((*podmap), tmppod)
+		}
+	}
+
+	for i := 0; i < len(*podmap); i++ {
+		if !(*podmap)[i].RunningCheck {
+			if (*podmap)[i].HealthCheck {
+				//정상 종료인지 확인을 해야함 --> Log Collector랑 연계 해야할듯
+				GPU_Metric.GPUReturn = GPU_Metric.GPUReturn + 1
+			}
+			//podmap 삭제
+		}
+	}
+
+	//매핑하는거 이전 버전
 	// for i := 0; i < podnum; i++ {
 	// 	if len(podmap) < podnum {
 	// 		podmap = append(podmap, &storage.PodGPU{})
@@ -401,9 +445,9 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 
 	for i := 0; i < podnum; i++ {
 		//fmt.Printf("MPS |%4v| : |%10vMiB| |%30v|  |%20v|\n", i-1, mps[i-1].MemoryUsed, gpumpsmap[i-1].Pod, gpumpsmap[i-1].Container)
-		fmt.Println(GPU_Metric.GPUPod[i].ProcessName)
+		// fmt.Println(GPU_Metric.GPUPod[i].ProcessName)
 		bp, _ := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
-			Database:  "metric",
+			Database:  "multimetric",
 			Precision: "s",
 		})
 
@@ -422,7 +466,7 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 			"gpu_mps_nodememory": GPU_Metric.GPUPod[i].PodMemory,
 			"gpu_mps_uid":        GPU_Metric.GPUPod[i].PodUid,
 		}
-		pt, err := influxdb.NewPoint("gpumap", tags, fields, time.Now())
+		pt, err := influxdb.NewPoint("podmetric", tags, fields, time.Now())
 		if err != nil {
 			fmt.Println("Error:", err.Error())
 		}
@@ -431,6 +475,8 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 		if err != nil {
 			fmt.Println("Error:", err.Error())
 		}
+
+		//프린트 찍은거
 		// fmt.Println("--------------GPU Map--------------")
 		// fmt.Println("GPU UUID : ", UUID)
 		// fmt.Println("Process Name : ", mps[i].Name)
@@ -490,9 +536,9 @@ func Gpumpsmetric(device nvml.Device, count int, c influxdb.Client, data *storag
 		// 	}
 		// }
 	}
-	a, _ := device.GetAccountingPids()
-	for i := 0; i < len(a); i++ {
-		fmt.Println(device.GetAccountingStats(uint32(a[i])))
-	}
+	// a, _ := device.GetAccountingPids()
+	// for i := 0; i < len(a); i++ {
+	// 	fmt.Println(device.GetAccountingStats(uint32(a[i])))
+	// }
 	return podnum
 }

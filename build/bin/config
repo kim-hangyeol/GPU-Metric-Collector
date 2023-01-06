@@ -5223,3 +5223,117 @@ users:
   user:
     client-certificate-data: REDACTED
     client-key-data: REDACTED
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: DATA+OMITTED
+    server: https://10.0.5.66:6443
+  name: keti-gpu-cluster1
+contexts:
+- context:
+    cluster: keti-gpu-cluster1
+    user: kubernetes-admin1
+  name: keti-gpu-context1
+current-context: keti-gpu-context1
+kind: Config
+preferences: {}
+users:
+- name: kubernetes-admin1
+  user:
+    client-certificate-data: REDACTED
+    client-key-data: REDACTED
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: DATA+OMITTED
+    server: https://10.0.5.66:6443
+  name: keti-gpu-cluster1
+contexts:
+- context:
+    cluster: keti-gpu-cluster1
+    user: kubernetes-admin1
+  name: keti-gpu-context1
+current-context: keti-gpu-context1
+kind: Config
+preferences: {}
+users:
+- name: kubernetes-admin1
+  user:
+    client-certificate-data: REDACTED
+    client-key-data: REDACTED
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: DATA+OMITTED
+    server: https://10.0.5.66:6443
+  name: keti-gpu-cluster1
+contexts:
+- context:
+    cluster: keti-gpu-cluster1
+    user: kubernetes-admin1
+  name: keti-gpu-context1
+current-context: keti-gpu-context1
+kind: Config
+preferences: {}
+users:
+- name: kubernetes-admin1
+  user:
+    client-certificate-data: REDACTED
+    client-key-data: REDACTED
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: DATA+OMITTED
+    server: https://10.0.5.66:6443
+  name: keti-gpu-cluster1
+contexts:
+- context:
+    cluster: keti-gpu-cluster1
+    user: kubernetes-admin1
+  name: keti-gpu-context1
+current-context: keti-gpu-context1
+kind: Config
+preferences: {}
+users:
+- name: kubernetes-admin1
+  user:
+    client-certificate-data: REDACTED
+    client-key-data: REDACTED
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: DATA+OMITTED
+    server: https://10.0.5.66:6443
+  name: keti-gpu-cluster1
+contexts:
+- context:
+    cluster: keti-gpu-cluster1
+    user: kubernetes-admin1
+  name: keti-gpu-context1
+current-context: keti-gpu-context1
+kind: Config
+preferences: {}
+users:
+- name: kubernetes-admin1
+  user:
+    client-certificate-data: REDACTED
+    client-key-data: REDACTED
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: DATA+OMITTED
+    server: https://10.0.5.66:6443
+  name: keti-gpu-cluster1
+contexts:
+- context:
+    cluster: keti-gpu-cluster1
+    user: kubernetes-admin1
+  name: keti-gpu-context1
+current-context: keti-gpu-context1
+kind: Config
+preferences: {}
+users:
+- name: kubernetes-admin1
+  user:
+    client-certificate-data: REDACTED
+    client-key-data: REDACTED

@@ -1,5 +1,6 @@
 package analyzer
 
+// 노드 분석을 위해 노드메트릭 가져오는 구조체
 type NodeMetric struct {
 	AverCpu        int64
 	AverMemory     int64
@@ -11,8 +12,14 @@ type NodeMetric struct {
 	StDevStorage   float64
 	StDevNetworkRx float64
 	StDevNetworkTx float64
+	MemoryList     []float64
+	CPUList        []float64
+	StorageList    []float64
+	RXList         []float64
+	TXList         []float64
 }
 
+// GPU 분석을 위해 GPU 메트릭 가져오는 구조체
 type GPUMetric struct {
 	AverMemory    int64
 	AverUtil      int
@@ -28,8 +35,15 @@ type GPUMetric struct {
 	StDevTemp     float64
 	StDevRX       float64
 	StDevTX       float64
+	GPUUtilList   []float64
+	FanSpeedList  []float64
+	GPUMemoryList []float64
+	PowerList     []float64
+	RXList        []float64
+	TXList        []float64
 }
 
+// Pod 분석을 위해 Pod 메트릭 가져오는 구조체
 type PodMetric struct {
 	AverMemory     int64
 	AverGPUMemory  int64
@@ -51,6 +65,7 @@ type PodMetric struct {
 	TXList         []float64
 }
 
+// 스케줄러로 성능저하 알릴때 보내는 구조체
 type Degradation struct {
 	NodeName      string
 	ISIncrease    bool

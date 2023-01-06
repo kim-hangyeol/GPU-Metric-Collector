@@ -1,12 +1,15 @@
 package grpcs
 
+//총집합(보내기위함)
+
+// GPU 메트릭 구조체
 type GrpcGPU struct {
 	GrpcGPUUUID       string
-	GrpcGPUused       int64
+	GrpcGPUtotal      int64
 	GrpcGPUfree       int64
+	GrpcGPUused       int64
 	GrpcGPUName       string
 	GrpcGPUIndex      int
-	GrpcGPUtotal      int64
 	GrpcGPUtemp       GPUTemperature
 	GrpcGPUpower      int
 	GrpcGPUmpscount   int
@@ -18,8 +21,11 @@ type GrpcGPU struct {
 	GPUPod            []*PodMetric
 	GPURX             int
 	GPUTX             int
+	GPUAssingment     int
+	GPUReturn         int
 }
 
+// Node 메트릭 구조체
 type GrpcNode struct {
 	GrpcNodeName         string
 	GrpcNodetotalCPU     int64
@@ -37,6 +43,7 @@ type GrpcNode struct {
 	NvLinkInfo           []NvLink
 }
 
+// Pod 메트릭 구조체
 type PodMetric struct {
 	PodUid       string
 	PodName      string
@@ -48,14 +55,17 @@ type PodMetric struct {
 	PodNetworkRX int64
 	PodNetworkTX int64
 	PodStorage   int64
+	ContainerID  string
 }
 
+// Node 메트릭 내부 nvlink 구조체
 type NvLink struct {
 	GPU1UUID  string
 	GPU2UUID  string
 	CountLink int
 }
 
+// GPU 메트릭 내부 gputemp 구조체
 type GPUTemperature struct {
 	Current      int //현재 온도
 	Threshold    int //성능 저하 온도

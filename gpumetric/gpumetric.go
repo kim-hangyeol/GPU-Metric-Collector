@@ -9,84 +9,35 @@ import (
 	"metric-collector/storage"
 	"time"
 
-	//"github.com/NVIDIA/gpu-monitoring-tools/bindings/go/nvml"
-
+	"github.com/NVIDIA/go-nvml/pkg/nvml"
 	_ "github.com/influxdata/influxdb1-client"
 	influxdb "github.com/influxdata/influxdb1-client/v2"
-
-	//"github.com/NVIDIA/gpu-monitoring-tools/bindings/go/nvml"
-	//"nvml-test/gpumpsmetriccollector"
-	//"metric-collector/metricfactory"
-	"github.com/NVIDIA/go-nvml/pkg/nvml"
-	//"github.com/NVIDIA/gpu-monitoring-tools/bindings/go/nvml"
-	//_ "github.com/influxdata/influxdb1-client"
-	//influxdb "github.com/influxdata/influxdb1-client/v2"
 )
 
-//var txnum = 0
-//var rxnum = 0
-/*type nvml1 struct {
-	Init           func() error
-	Shutdown       func() error
-	GetDeviceCount func() (uint, error)
-
-	NewDevice func(uint) (Device, error)
-}
-type Device struct {
-	Clocks      int
-	UUID        string
-	Path        string
-	Model       string
-	Power       uint
-	Memory      uint64
-	CPUAffinity uint
-	Status      func() (Stat, error)
-	// contains filtered or unexported fields
-}
-
-type Stat struct {
-	Memory      int
-	Power       int
-	Temperature int
-	Clocks      int
-	PCI         PCIStatusInfo
-}
-
-type PCIStatusInfo struct {
-	BAR1Used   uint
-	Throughput PCIThroughputInfo
-}
-
-type PCIThroughputInfo struct {
-	RX uint
-	TX uint
-}*/
+var podmap []storage.GPUMAP
 
 func Gpumetric(c influxdb.Client, nodecpu int64, nodememory int64, nodename string, GPU []*grpcs.GrpcGPU, data *storage.Collection, Node *grpcs.GrpcNode) {
-	//func Gpumetric(c influxdb.Client, nvml *nvml1) {
-	//name := os.Getenv("MY_NODE_NAME")
+	//여기가 GPU Metric 수집하는 부분임
 
-	//fmt.Printf("nodename: %v\n", name)
-	var podmap []*storage.GPUMAP
 	var gpuuuid []string
-	ret := nvml.Init()
+	ret := nvml.Init() //gpu없으면 에러남
 	if ret != nvml.SUCCESS {
 		//log.Fatalf("Unable to initialize NVML: %v", ret)
 		fmt.Printf("Unable to initialize NVML: %v\n", ret)
 		bp, _ := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
-			Database:  "metric",
+			Database:  "multimetric",
 			Precision: "s",
 		})
 
-		tags := map[string]string{}
-		fields := map[string]interface{}{
+		tags := map[string]string{}       //인덱스
+		fields := map[string]interface{}{ //실제값 넣는곳
 			"NodeCPU":    nodecpu,
 			"NodeMemory": nodememory,
 			"uuid":       gpuuuid,
 			"Count":      0,
 			"NodeName":   nodename,
 		}
-		pt, err := influxdb.NewPoint("multimetric", tags, fields, time.Now())
+		pt, err := influxdb.NewPoint("nodemetric", tags, fields, time.Now())
 		if err != nil {
 			fmt.Println("Error:", err.Error())
 		}
@@ -104,6 +55,7 @@ func Gpumetric(c influxdb.Client, nodecpu int64, nodememory int64, nodename stri
 			fmt.Printf("Unable to shutdown NVML: %v\n", ret)
 		}
 	}()
+
 	count, ret := nvml.DeviceGetCount()
 	if ret != nvml.SUCCESS {
 		//log.Fatalf("Unable to get device count: %v", ret)
@@ -114,9 +66,10 @@ func Gpumetric(c influxdb.Client, nodecpu int64, nodememory int64, nodename stri
 	//fmt.Printf("GPU Metric Collector log\n")
 	//fmt.Println("GPU Index   GPU Utilization   GPU Memory(Total, Free, Used)   GPU Temperature     GPU Power(Total, Used)")
 	for i := 0; i < count; i++ {
-		if len(podmap) < int(count) {
-			podmap = append(podmap, &storage.GPUMAP{})
+		if len(podmap) < int(count) { //최초일때만 생성하려고
+			podmap = append(podmap, storage.GPUMAP{}) // gpu쓰는 파드 맵
 		}
+		//슬럼쪽 코드
 		//var slurmjob []storage.SlurmJob
 		//singularity_test,gpu:1(IDX:0),1649389685
 		//idx:0-1,3-5,7
@@ -172,7 +125,9 @@ func Gpumetric(c influxdb.Client, nodecpu int64, nodememory int64, nodename stri
 		uuid, _ := device.GetUUID() //uuid
 		podmap[i].GPUUUID = uuid
 		Node.NodeGPU[i].GPUPod = nil
-		podnum := gpumpsmetric.Gpumpsmetric(device, int(count), c, data, podmap[i].PodMetric, Node.NodeGPU[i])
+
+		//여기가 GPU Process Metric 수집하는 부분
+		podnum := gpumpsmetric.Gpumpsmetric(device, int(count), c, data, &podmap[i].PodMetric, Node.NodeGPU[i])
 
 		//process := status.Processes
 		//fmt.Printf("%v \n",process)
@@ -228,12 +183,11 @@ func Gpumetric(c influxdb.Client, nodecpu int64, nodememory int64, nodename stri
 
 		//pci := device.PCI //pci
 		//fmt.Printf("PCI (BusID, BAR1 Memory, BandWidth): %v %v %v\n", pci.BusID, *(pci.BAR1), *(pci.Bandwidth))
-		PCITX, _ := device.GetPcieThroughput(0)
-		PCIRX, _ := device.GetPcieThroughput(1)
+		// PCITX, _ := device.GetPcieThroughput(0)
+		// PCIRX, _ := device.GetPcieThroughput(1)
 		fanspeed, _ := device.GetFanSpeed()
 
 		gpuuuid = append(gpuuuid, uuid)
-
 		GPU[i].GrpcGPUused = int64(memory.Used)
 		GPU[i].GrpcGPUfree = int64(memory.Free)
 		GPU[i].GrpcGPUUUID = uuid
@@ -242,14 +196,14 @@ func Gpumetric(c influxdb.Client, nodecpu int64, nodememory int64, nodename stri
 		GPU[i].GrpcGPUtotal = int64(memory.Total)
 		GPU[i].GrpcGPUtemp.Current = int(temperature)
 		GPU[i].GrpcGPUpower = int(Power)
-		GPU[i].GPURX = int(PCIRX)
-		GPU[i].GPUTX = int(PCITX)
+		// GPU[i].GPURX = int(PCIRX)
+		// GPU[i].GPUTX = int(PCITX)
 		GPU[i].GrpcGPUmpscount = podnum
 		GPU[i].GrpcGPUtotalpower = int(power)
 		GPU[i].GrpcGPUutil = int(util.Gpu)
 		GPU[i].FanSpeed = int(fanspeed)
 		bp, _ := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
-			Database:  "metric",
+			Database:  "multimetric",
 			Precision: "s",
 		})
 
@@ -264,9 +218,9 @@ func Gpumetric(c influxdb.Client, nodecpu int64, nodememory int64, nodename stri
 			"Power":         GPU[i].GrpcGPUpower, //7
 			"temperature":   GPU[i].GrpcGPUtemp,  //12
 			"Podnum":        len(GPU[i].GPUPod),  //6
-			"PciRx":         GPU[i].GPURX,        //4
-			"PciTx":         GPU[i].GPUTX,        //5
-			"FanSpeed":      GPU[i].FanSpeed,     //1
+			// "PciRx":         GPU[i].GPURX,        //4
+			// "PciTx":         GPU[i].GPUTX,        //5
+			"FanSpeed": GPU[i].FanSpeed, //1
 		}
 		pt, err := influxdb.NewPoint("gpumetric", tags, fields, time.Now())
 		if err != nil {
@@ -277,6 +231,7 @@ func Gpumetric(c influxdb.Client, nodecpu int64, nodememory int64, nodename stri
 		if err != nil {
 			fmt.Println("Error write :", err.Error())
 		}
+		//출력부 근데 여기서 안찍어도 됨
 		// fmt.Println("--------------Quantitative Measurement GPU Metric Collector Log--------------")
 		// fmt.Println("Node Name : ", nodename)
 		// fmt.Println("GPU UUID : ", uuid)
@@ -303,7 +258,7 @@ func Gpumetric(c influxdb.Client, nodecpu int64, nodememory int64, nodename stri
 	go analyzer.Analyzer(*Node, c)
 
 	bp, _ := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
-		Database:  "metric",
+		Database:  "multimetric",
 		Precision: "s",
 	})
 	Node.TotalPodnum = 0
@@ -311,6 +266,7 @@ func Gpumetric(c influxdb.Client, nodecpu int64, nodememory int64, nodename stri
 		Node.TotalPodnum += len(Node.NodeGPU[i].GPUPod)
 	}
 	tags := map[string]string{}
+	//influx에 들어가는건데 이름순 정렬을 주석 달아놓은 것
 	fields := map[string]interface{}{
 		"NodeCPU":       nodecpu,              //2
 		"NodeMemory":    nodememory,           //3
@@ -322,7 +278,7 @@ func Gpumetric(c influxdb.Client, nodecpu int64, nodememory int64, nodename stri
 		"NodeNetworkTX": Node.NodeNetworkTX,   //5
 		"totalpod":      Node.TotalPodnum,     //8
 	}
-	pt, err := influxdb.NewPoint("multimetric", tags, fields, time.Now())
+	pt, err := influxdb.NewPoint("nodemetric", tags, fields, time.Now())
 	if err != nil {
 		fmt.Println("Error:", err.Error())
 	}
@@ -331,6 +287,7 @@ func Gpumetric(c influxdb.Client, nodecpu int64, nodememory int64, nodename stri
 	if err != nil {
 		fmt.Println("Error:", err.Error())
 	}
+	//여기도 출력부인데 여기서 안찍어도 됨
 	// fmt.Println("--------------Multi Metric--------------")
 	// fmt.Println("Node Name : ", nodename)
 	// fmt.Println("Node CPU (Nano) : ", nodecpu)

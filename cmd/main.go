@@ -40,10 +40,10 @@ import (
 	"google.golang.org/grpc"
 )
 
-var collect_time = flag.Int("collecttime", 10, "Metric Collect Time")
-var MaxLanes = 16
+var collect_time = flag.Int("collecttime", 10, "Metric Collect Time") //메트릭 수집 주기
+var MaxLanes = 16                                                     //nvlink를 확인하기 위해 도는 레인 수
 
-const portNumber = "9000"
+const portNumber = "9000" //스케줄러->메콜 통신 포트
 
 type UserServer struct {
 	userpb.UserServer
@@ -57,31 +57,35 @@ var gpuuuid []string
 
 var prevNodeStorage int64
 
+var tmprx []int
+var tmptx []int
+
 func main() {
 	Node = append(Node, &grpcs.GrpcNode{})
 	count := 0
-	flag.Parse()
-	ret := nvml.Init()
+	flag.Parse()       //이건 뭐하는거?
+	ret := nvml.Init() //GPU 확인인데 이부분이 GPU가 없으면 에러남
 	if ret != nvml.SUCCESS {
-		//log.Fatalf("Unable to initialize NVML: %v", ret)
 		fmt.Printf("Unable to initialize NVML: %v\n", ret)
 	} else {
-		count, _ = nvml.DeviceGetCount()
-		defer func() {
+		count, _ = nvml.DeviceGetCount() //GPU 개수 획득
+		defer func() {                   //??
 			ret := nvml.Shutdown()
 			if ret != nvml.SUCCESS {
-				//log.Fatalf("Unable to shutdown NVML: %v", ret)
 				fmt.Printf("Unable to shutdown NVML: %v\n", ret)
 			}
 		}()
-
 	}
 
+	//gpu개수만큼
 	for i := 0; i < count; i++ {
+		//초기 GPU MAP생성
 		device, _ := nvml.DeviceGetHandleByIndex(i)
 		uuid, _ := device.GetUUID()
 		gpuuuid = append(gpuuuid, uuid)
 		GPU = append(GPU, &grpcs.GrpcGPU{})
+		tmprx = append(tmprx, 0)
+		tmptx = append(tmptx, 0)
 		maxclock, _ := device.GetMaxClockInfo(0)
 
 		cudacore, _ := device.GetNumGpuCores()
@@ -107,6 +111,8 @@ func main() {
 	Node[0].GrpcNodeUUID = gpuuuid
 	Node[0].GrpcNodeCount = int(count)
 	//gpumap := "gpumap"
+
+	//INFLUX 연결
 	ip := "influxdb.gpu.svc.cluster.local"
 	//ip := "10.244.2.2"
 	port := "8086"
@@ -118,12 +124,12 @@ func main() {
 		fmt.Println("Error creating influx", err.Error())
 	}
 	dropdatabase := influxdb.Query{
-		Command:  "drop database metric",
+		Command:  "drop database multimetric",
 		Database: "_internal",
 	}
 	c.Query(dropdatabase)
 	makedatabase := influxdb.Query{
-		Command:  "create database metric",
+		Command:  "create database multimetric",
 		Database: "_internal",
 	}
 	name := os.Getenv("MY_NODE_NAME")
@@ -131,9 +137,17 @@ func main() {
 	//fmt.Println(Node[0].GrpcNodeName)
 	c.Query(makedatabase)
 	defer c.Close()
+
+	//GRPC 서버 런
 	go grpcrun()
+
+	//정량항목 출력용
 	go Print_Metric()
-	// go analyzer()
+
+	//PCI INFO 계산하는 부분
+	go Get_GPUPci()
+
+	//DCGM 테스트 하던부분 -> 안써도됨
 	//fmt.Printf("nodename: %v\n", name)
 	//cpu, err := exec.Command("grep", "-c", "processor", "/proc/cpuinfo").Output()
 	//if err != nil {
@@ -161,6 +175,7 @@ func main() {
 	//time.Sleep(3000 * time.Millisecond)
 
 	for {
+		//이쪽이 메인 동작인데 슬럼쪽 코드도 좀 섞여있음
 		//workdata := GetWorkData()
 		data, totalcpu, nanocpu, totalmemory, nodememoey, nodetotalstorage, nodestorage := MemberMetricCollector()
 		// if data == nil {
@@ -175,11 +190,52 @@ func main() {
 		Node[0].NodeNetworkRX = data.Metricsbatchs[0].Node.NetworkRxBytes.Value()
 		Node[0].NodeNetworkTX = data.Metricsbatchs[0].Node.NetworkTxBytes.Value()
 		go gpumetric.Gpumetric(c, nanocpu, nodememoey, name, GPU, data, Node[0])
+		Get_RXTX_Data()
 
 		//nvmemetriccollector.Nvmemetric(c)
 		//metricfactory.Factory(c)
 		time.Sleep(time.Duration(*collect_time) * time.Second)
 		// fmt.Println(*collect_time)
+	}
+
+}
+
+func Get_RXTX_Data() {
+	for i := 0; i < len(GPU); i++ {
+		GPU[i].GPURX = tmprx[i]
+		GPU[i].GPUTX = tmptx[i]
+		tmprx[i] = 0
+		tmptx[i] = 0
+	}
+
+}
+
+func Get_GPUPci() {
+	ret := nvml.Init()
+	if ret != nvml.SUCCESS {
+		//log.Fatalf("Unable to initialize NVML: %v", ret)
+		fmt.Printf("Unable to initialize NVML: %v\n", ret)
+	} else {
+		count, _ := nvml.DeviceGetCount()
+		defer func() {
+			ret := nvml.Shutdown()
+			if ret != nvml.SUCCESS {
+				//log.Fatalf("Unable to shutdown NVML: %v", ret)
+				fmt.Printf("Unable to shutdown NVML: %v\n", ret)
+			}
+		}()
+
+		for {
+			for i := 0; i < count; i++ {
+				device, _ := nvml.DeviceGetHandleByIndex(i)
+				txinfo, _ := device.GetPcieThroughput(0)
+				rxinfo, _ := device.GetPcieThroughput(1)
+
+				tmprx[i] += int(rxinfo)
+				tmptx[i] += int(txinfo)
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
 	}
 
 }
@@ -191,7 +247,11 @@ func Print_Metric() {
 		// var tmpstring string
 		fmt.Println("<--------- Node#1 --------->")
 		fmt.Println("1) Node Name : ", Node[0].GrpcNodeName)
-		fmt.Println("[Metric #1] NVLink Pair", Node[0].NvLinkInfo)
+		if Node[0].NvLinkInfo == nil {
+			fmt.Println("[Metric #1] NVLink Pair : NVLink Not Found")
+		} else {
+			fmt.Println("[Metric #1] NVLink Pair : ", Node[0].NvLinkInfo)
+		}
 		for i := 0; i < len(GPU); i++ {
 			fmt.Println("2-", GPU[i].GrpcGPUIndex, ") GPU Name : ", GPU[i].GrpcGPUName)
 			fmt.Println("[Metric #2] GPU Utilization : ", GPU[i].GrpcGPUutil)
@@ -201,11 +261,13 @@ func Print_Metric() {
 			fmt.Println("[Metric #6] GPU FLOPS : ", GPU[i].GrpcGPUflops)
 			fmt.Println("[Metric #7] GPU Pod Count : ", GPU[i].GrpcGPUmpscount)
 			fmt.Println("[Metric #8] GPU Architecture : ", GPU[i].GrpcGPUarch)
+			fmt.Println("[Metric #9] GPU PCI Throughput(Byte/s) : ", GPU[i].GPURX / *collect_time, "/", GPU[i].GPUTX / *collect_time, " (RX/TX)")
 			// tmpstring += GPU[i].
 		}
 	}
 }
 
+//여긴 슬럼쪽 코드
 // func GetWorkData() string {
 // 	conn, err := grpc.Dial("10.0.5.24:30036", grpc.WithInsecure(), grpc.WithBlock())
 // 	if err != nil {
@@ -227,6 +289,7 @@ func Print_Metric() {
 // 	return workdata
 // }
 
+// 여기가 분산협업에서 사용하던 메트릭 콜렉터인데 필요 데이터만 가져오게 수정함
 func MemberMetricCollector() (*storage.Collection, int64, int64, int64, int64, int64, int64) {
 	//SERVER_IP := os.Getenv("GRPC_SERVER")
 	//SERVER_PORT := os.Getenv("GRPC_PORT")
@@ -431,8 +494,6 @@ func (s *UserServer) GetInitData(ctx context.Context, req *userpb.InitRequest) (
 	// userInitMessage.InitNode.Gpu1Index = Node[0].nv
 
 	for i := 0; i < len(gpuuuid); i++ {
-		// userInitMessage.InitGPU = append(userInitMessage.InitGPU, &userpb.GPUMessage{})
-		// userInitMessage.InitGPU[i].GpuUuid = j
 		if GPU[i].GrpcGPUmpscount < 0 {
 			GPU[i].GrpcGPUmpscount = 0
 		}
@@ -508,7 +569,7 @@ func GetNvlinkInfo(node *grpcs.GrpcNode) {
 		nvlinkStatus[i].UUID, _ = device.GetUUID()
 		nvlinkStatus[i].Lanes = make(map[string]int)
 		// nvlinkStatus[i].Lanes
-		for j := 0; j < MaxLanes; j++ {
+		for j := 0; j < MaxLanes; j++ { //nvlink가 있는지 없는지 쭉 돌면서 확인
 			P2PPciInfo, err := device.GetNvLinkRemotePciInfo(j)
 			if err != nvml.SUCCESS {
 				break

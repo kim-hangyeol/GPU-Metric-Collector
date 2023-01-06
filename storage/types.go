@@ -136,7 +136,10 @@ type PodGPU struct {
 	Index        int
 	GPUmpscount  int
 	Usegpumemory int
-	Isrunning    int
+	ContainerID  string
+	RunningCheck bool
+	Isrunning    bool
+	HealthCheck  bool
 	CPU          int
 	Memory       int
 	Storage      int
@@ -146,7 +149,7 @@ type PodGPU struct {
 
 type GPUMAP struct {
 	GPUUUID   string
-	PodMetric []*PodGPU
+	PodMetric []PodGPU
 }
 
 type SlurmJob struct {
