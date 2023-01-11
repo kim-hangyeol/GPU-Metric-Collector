@@ -12,6 +12,8 @@ spec:
       labels:
         name: gpu-metric-collector
     spec:
+      nodeSelector: 
+        gpu: "true"
       serviceAccountName: keti-gpu-device-plugin
       imagePullSecrets:
         - name: regcred
