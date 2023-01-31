@@ -1,8 +1,10 @@
 #!/bin/bash
-docker_id="ketidevit2"
-image_name="kmc-metric-test"
+docker_id="ketidevit3"
+image_name="Exascale-keti-gpu-metric-collector"
+# image_name="kmc-metric-test"
 operator="metric-collector"
-version=v284 #82
+version="v0.1"
+#version="v284" #82
 
 export GO111MODULE=on
 go mod vendor
