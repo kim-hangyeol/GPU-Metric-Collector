@@ -70,5 +70,5 @@ type GPUTemperature struct {
 	Current      int //현재 온도
 	Threshold    int //성능 저하 온도
 	Shutdown     int //강제 종료 온도
-	MaxOperating int //?
+	MaxOperating int //성능 유지 최대 온도
 }
