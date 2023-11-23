@@ -5,7 +5,7 @@ image_name="Exascale-keti-gpu-metric-collector"
 operator="metric-collector"
 version="v0.1"
 #version="v284" #82
-
+#khg:W
 export GO111MODULE=on
 go mod vendor
 kubectl config view >> `pwd`/build/bin/config
